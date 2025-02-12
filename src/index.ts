@@ -33,12 +33,7 @@ function keepV(url) {
 
 const commands = [
     new SlashCommandBuilder().setName("nowplaying")
-        .setDescription("balls").addStringOption(option =>
-            option
-            .setName("user")
-            .setDescription("username")
-            .setRequired(true)
-        )
+        .setDescription("balls")
         .setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
         ])
@@ -67,9 +62,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (commandName !== "nowplaying") return;
     await interaction.deferReply()
 
-    const user = interaction.options.getString('user');
 
-    const meow = await fetch(`https://api.listenbrainz.org/1/user/${user}/playing-now`).then((res) => res.json());
+    const meow = await fetch(`https://api.listenbrainz.org/1/user/${config.listenbrainzAccount}/playing-now`).then((res) => res.json());
     if (!meow) {
         interaction.followUp("something shat itself!");
         return;
