@@ -1,8 +1,13 @@
 import config from "../config.json" with {type: "json"};
 import {
+    ActionRow,
+    ActionRowBuilder,
     Application,
     ApplicationIntegrationType,
+    ButtonBuilder,
+    ButtonStyle,
     Client,
+    EmbedBuilder,
     Events,
     GatewayIntentBits,
     InteractionContextType,
@@ -10,6 +15,7 @@ import {
     Routes,
     SlashCommandBuilder
 } from "discord.js";
+import { getSongOnPreferredProvider } from "./helper.ts";
 
 const client = new Client({
     intents: Object.keys(GatewayIntentBits).map((a) => {
@@ -49,7 +55,7 @@ client.once(Events.ClientReady, async () => {
     console.log("Ready");
     const rest = new REST().setToken(config.token);
     const data = await rest.put(
-        Routes.applicationCommands(client.user.id), {body: commands},
+        Routes.applicationCommands(client.user.id), { body: commands },
     );
     // @ts-ignore
     console.log(`Successfully reloaded ${data.length} application (/) commands.`);
@@ -58,7 +64,7 @@ client.once(Events.ClientReady, async () => {
 client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
-    const {commandName} = interaction;
+    const { commandName } = interaction;
     if (commandName !== "nowplaying") return;
     await interaction.deferReply()
 
@@ -71,7 +77,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (meow.payload.count === 0) {
         interaction.followUp("user isnt listening to music");
     } else {
-        interaction.followUp("[" + meow.payload.listens[0].track_metadata.artist_name + " - " + meow.payload.listens[0].track_metadata.track_name + "](" + keepV(meow.payload.listens[0].track_metadata.additional_info.origin_url) + ")");
+        const track_metadata = meow.payload.listens[0].track_metadata
+        const link = keepV(track_metadata.additional_info.origin_url)
+
+        const preferredApi = getSongOnPreferredProvider(await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json()), link)
+        const embed = new EmbedBuilder()
+            .setAuthor({
+                name: preferredApi.artist,
+            })
+            .setTitle(preferredApi.title)
+            .setThumbnail(preferredApi.thumbnailUrl)
+            .setFooter({
+                text: "amy jr",
+            });
+            const nya = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setURL(preferredApi.link).setLabel("link").setStyle(ButtonStyle.Link))
+        interaction.followUp({
+            components: [
+                nya
+            ],
+            embeds: [embed]
+        });
     }
 
 })
