@@ -16,6 +16,13 @@ import {
     SlashCommandBuilder
 } from "discord.js";
 import { getSongOnPreferredProvider } from "./helper.ts";
+import path from "node:path";
+import fs from "node:fs";
+import { Command } from "./command.ts";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const client = new Client({
     intents: Object.keys(GatewayIntentBits).map((a) => {
@@ -24,38 +31,22 @@ const client = new Client({
     }),
 });
 
-function keepV(url) {
-    const urlObj = new URL(url);
-    const vParam = urlObj.searchParams.get("v");
+const commands: Command[] = []
 
-    urlObj.search = "";
 
-    if (vParam) {
-        urlObj.searchParams.set("v", vParam);
-    }
-
-    return urlObj.toString();
+const commandDir = path.join(__dirname, "commands");
+for (const file of fs.readdirSync(commandDir)) {
+    let command = await import(path.join(commandDir, file));
+    commands.push(new command.default())
 }
 
-const commands = [
-    new SlashCommandBuilder().setName("nowplaying")
-        .setDescription("balls")
-        .setIntegrationTypes([
-            ApplicationIntegrationType.UserInstall
-        ])
-        .setContexts([
-            InteractionContextType.BotDM,
-            InteractionContextType.Guild,
-            InteractionContextType.PrivateChannel
-        ])
-].map(command => command.toJSON())
-
+const commandLookup = Object.fromEntries(commands.map(it => [it.slashCommand.name, it]))
 
 client.once(Events.ClientReady, async () => {
     console.log("Ready");
     const rest = new REST().setToken(config.token);
     const data = await rest.put(
-        Routes.applicationCommands(client.user.id), { body: commands },
+        Routes.applicationCommands(client.user.id), { body: commands.map(command => command.slashCommand.toJSON()) },
     );
     // @ts-ignore
     console.log(`Successfully reloaded ${data.length} application (/) commands.`);
@@ -65,38 +56,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
     const { commandName } = interaction;
-    if (commandName !== "nowplaying") return;
-    await interaction.deferReply()
 
-
-    const meow = await fetch(`https://api.listenbrainz.org/1/user/${config.listenbrainzAccount}/playing-now`).then((res) => res.json());
-    if (!meow) {
-        interaction.followUp("something shat itself!");
-        return;
+    const command = commandLookup[commandName]
+    if (!command) {
+        console.error("unknown command: " + commandName)
+        return
     }
-    if (meow.payload.count === 0) {
-        interaction.followUp("user isnt listening to music");
-    } else {
-        const track_metadata = meow.payload.listens[0].track_metadata
-        const link = keepV(track_metadata.additional_info.origin_url)
 
-        const preferredApi = getSongOnPreferredProvider(await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json()), link)
-        const embed = new EmbedBuilder()
-            .setAuthor({
-                name: preferredApi.artist,
-            })
-            .setTitle(preferredApi.title)
-            .setThumbnail(preferredApi.thumbnailUrl)
-            .setFooter({
-                text: "amy jr",
-            });
-            const nya = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setURL(preferredApi.link).setLabel("link").setStyle(ButtonStyle.Link))
-        interaction.followUp({
-            components: [
-                nya
-            ],
-            embeds: [embed]
-        });
+    try {
+        await command.run(interaction, config);
+    } catch {
+        interaction.reply("something sharted itself")
     }
 
 })
