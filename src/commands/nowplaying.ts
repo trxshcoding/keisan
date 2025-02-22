@@ -43,7 +43,7 @@ export default class PingCommand extends Command {
 
             const preferredApi = getSongOnPreferredProvider(await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json()), link)
             if (!preferredApi) {
-                interaction.followUp("song not found")
+                await interaction.followUp("song not found")
                 return
             }
             const embed = new EmbedBuilder()
@@ -56,7 +56,7 @@ export default class PingCommand extends Command {
                     text: "amy jr",
                 });
             const nya = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setURL(preferredApi.link).setLabel("link").setStyle(ButtonStyle.Link))
-            interaction.followUp({
+            await interaction.followUp({
                 components: [
                     nya
                 ],
