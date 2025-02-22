@@ -1,21 +1,11 @@
 import config from "../config.json" with {type: "json"};
 import {
-    ActionRow,
-    ActionRowBuilder,
-    Application,
-    ApplicationIntegrationType,
-    ButtonBuilder,
-    ButtonStyle,
     Client,
-    EmbedBuilder,
     Events,
     GatewayIntentBits,
-    InteractionContextType,
     REST,
     Routes,
-    SlashCommandBuilder
 } from "discord.js";
-import { getSongOnPreferredProvider } from "./helper.ts";
 import path from "node:path";
 import fs from "node:fs";
 import { Command } from "./command.ts";
@@ -65,7 +55,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     try {
         await command.run(interaction, config);
-    } catch {
+    } catch (e) {
+        console.error("error during command execution: " + commandName, e )
         interaction.reply("something sharted itself")
     }
 
