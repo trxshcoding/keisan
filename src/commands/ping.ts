@@ -5,9 +5,10 @@ import {
     InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
+import { Config } from "../config.ts";
 
 export default class PingCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config) {
+    async run(interaction: ChatInputCommandInteraction, config: Config) {
         await interaction.reply({
             content: 'Pong!',
         });

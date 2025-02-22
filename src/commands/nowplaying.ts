@@ -11,8 +11,9 @@ import {
 } from "discord.js";
 
 import { getSongOnPreferredProvider } from "../helper.ts"
+import { Config } from "../config.ts";
 
-function keepV(url) {
+function keepV(url: string): string {
     const urlObj = new URL(url);
     const vParam = urlObj.searchParams.get("v");
 
@@ -26,7 +27,7 @@ function keepV(url) {
 }
 
 export default class PingCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config) {
+    async run(interaction: ChatInputCommandInteraction, config: Config) {
         await interaction.deferReply()
 
 
