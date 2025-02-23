@@ -1,4 +1,3 @@
-import config from "../config.json" with {type: "json"};
 import {
     Client,
     Events,
@@ -10,6 +9,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { Command } from "./command.ts";
 import { fileURLToPath } from "url";
+import { config } from "./config.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,7 +36,7 @@ client.once(Events.ClientReady, async () => {
     console.log("Ready");
     const rest = new REST().setToken(config.token);
     const data = await rest.put(
-        Routes.applicationCommands(client.user.id), { body: commands.map(command => command.slashCommand.toJSON()) },
+        Routes.applicationCommands(client.user!.id), { body: commands.map(command => command.slashCommand.toJSON()) },
     );
     // @ts-ignore
     console.log(`Successfully reloaded ${data.length} application (/) commands.`);
