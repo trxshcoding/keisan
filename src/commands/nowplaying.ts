@@ -1,4 +1,4 @@
-import { Command } from "../command.ts";
+import {Command} from "../command.ts";
 import {
     ActionRowBuilder,
     ApplicationIntegrationType,
@@ -10,8 +10,8 @@ import {
     SlashCommandBuilder
 } from "discord.js";
 
-import { getSongOnPreferredProvider } from "../helper.ts"
-import { Config } from "../config.ts";
+import {getSongOnPreferredProvider} from "../helper.ts"
+import {Config} from "../config.ts";
 
 function keepV(url: string): string {
     const urlObj = new URL(url);
@@ -29,9 +29,9 @@ function keepV(url: string): string {
 export default class PingCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         await interaction.deferReply()
-
-
-        const meow = await fetch(`https://api.listenbrainz.org/1/user/${config.listenbrainzAccount}/playing-now`).then((res) => res.json());
+        const user = interaction.options.getString("user") ?? config.listenbrainzAccount;
+        console.log(`https://api.listenbrainz.org/1/user/${user}/playing-now`);
+        const meow = await fetch(`https://api.listenbrainz.org/1/user/${user}/playing-now`).then((res) => res.json());
         if (!meow) {
             await interaction.followUp("something shat itself!");
             return;
@@ -40,29 +40,54 @@ export default class PingCommand extends Command {
             await interaction.followUp("user isnt listening to music");
         } else {
             const track_metadata = meow.payload.listens[0].track_metadata
-            const link = keepV(track_metadata.additional_info.origin_url)
+            if (track_metadata.additional_info.origin_url) {
+                const link = keepV(track_metadata.additional_info.origin_url)
 
-            const preferredApi = getSongOnPreferredProvider(await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json()), link)
-            if (!preferredApi) {
-                await interaction.followUp("song not found")
-                return
+                const preferredApi = getSongOnPreferredProvider(await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json()), link)
+                if (preferredApi) {
+                    const embed = new EmbedBuilder()
+                        .setAuthor({
+                            name: preferredApi.artist,
+                        })
+                        .setTitle(preferredApi.title)
+                        .setThumbnail(preferredApi.thumbnailUrl)
+                        .setFooter({
+                            text: "amy jr",
+                        });
+                    const nya = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setURL(preferredApi.link).setLabel("link").setStyle(ButtonStyle.Link))
+                    await interaction.followUp({
+                        components: [
+                            nya
+                        ],
+                        embeds: [embed]
+                    });
+                    return
+                }
+
             }
-            const embed = new EmbedBuilder()
-                .setAuthor({
-                    name: preferredApi.artist,
+            let hasURL = false;
+            if (track_metadata.additional_info.release_mbid) {
+                const thing = await fetch(`https://coverartarchive.org/release/${track_metadata.additional_info.release_mbid}/front`, {
+                    method: "HEAD",
+                    redirect: "manual",
                 })
-                .setTitle(preferredApi.title)
-                .setThumbnail(preferredApi.thumbnailUrl)
+                hasURL = thing.status === 307;
+            }
+            let embed = new EmbedBuilder()
+                .setAuthor({
+                    name: track_metadata.artist_name,
+                })
+                .setTitle(track_metadata.track_name)
+                .setDescription("could not get additional info")
                 .setFooter({
                     text: "amy jr",
                 });
-            const nya = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setURL(preferredApi.link).setLabel("link").setStyle(ButtonStyle.Link))
+            if (hasURL) {
+                embed.setThumbnail(`https://aart.yellows.ink/release/${track_metadata.additional_info.release_mbid}.webp`);
+            }
             await interaction.followUp({
-                components: [
-                    nya
-                ],
-                embeds: [embed]
-            });
+                embeds: [embed],
+            })
         }
 
     }
@@ -71,7 +96,9 @@ export default class PingCommand extends Command {
         .setName("nowplaying")
         .setDescription("balls").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
-        ])
+        ]).addStringOption(option => {
+            return option.setName("user").setDescription("listenbrainz username").setRequired(false)
+        })
         .setContexts([
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
