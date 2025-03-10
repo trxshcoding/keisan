@@ -2,6 +2,7 @@ import {
     Client,
     Events,
     GatewayIntentBits,
+    InteractionCallback,
     REST,
     Routes,
 } from "discord.js";
@@ -15,10 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const client = new Client({
-    intents: Object.keys(GatewayIntentBits).map((a) => {
-        //@ts-ignore
-        return GatewayIntentBits[a]
-    }),
+    intents: [],
 });
 
 const commands: Command[] = []
@@ -56,10 +54,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
         await command.run(interaction, config);
     } catch (e) {
-        console.error("error during command execution: " + commandName, e )
+        console.error("error during command execution: " + commandName, e)
         interaction.reply("something sharted itself")
     }
 
+})
+
+client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isAutocomplete()) return
+    const {commandName} = interaction;
+
+    const command = commandLookup[commandName]
+    if (!command) {
+        console.error("unknown command: " + commandName)
+        return
+    }
+
+    try {
+        await command.autoComplete(interaction, config, interaction.options.getFocused(true));
+    } catch (e) {
+        console.error("error during command execution: " + commandName, e)
+    }
 })
 
 await client.login(config.token);

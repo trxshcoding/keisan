@@ -5,7 +5,8 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "start": "node --no-warnings=ExperimentalWarning --loader ts-node/esm src/index.ts"
+    "start": "node --no-warnings=ExperimentalWarning --loader ts-node/esm src/index.ts",
+    "check": "tsc"
   },
   "dependencies": {
     "discord.js": "^14.17.2",

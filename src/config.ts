@@ -4,7 +4,7 @@ const configT = z.object({
   token: z.string(),
   listenbrainzAccount: z.string(),
   gitapi: z.string(),
-  applicationid: z.string(),
+  // applicationid: z.string(),
 });
 export type Config = z.infer<typeof configT>;
 export const config: Config = configT.parse(rawconfig);
