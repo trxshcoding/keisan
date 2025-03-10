@@ -32,7 +32,9 @@ const songLinkShape = z.object({
 export const preferredProviders = [
     "spotify",
     "deezer",
-    "youtubeMusic"
+    "youtubeMusic",
+    "tidal",
+    "itunes"
 ];
 
 export function getSongOnPreferredProvider(json: any, link: string): Song | null {
@@ -44,13 +46,12 @@ export function getSongOnPreferredProvider(json: any, link: string): Song | null
         }
         const entityId = song.linksByPlatform[platform].entityUniqueId;
         const songInfo = song.entitiesByUniqueId[entityId]
-
         return {
             title: songInfo.title,
             artist: songInfo.artistName,
             apiProvider: songInfo.apiProvider,
             thumbnailUrl: songInfo.thumbnailUrl,
-            link
+            link: song.linksByPlatform[platform].url,
         }
     }
     return null

@@ -40,54 +40,51 @@ export default class PingCommand extends Command {
             await interaction.followUp("user isnt listening to music");
         } else {
             const track_metadata = meow.payload.listens[0].track_metadata
-            if (track_metadata.additional_info.origin_url) {
-                const link = keepV(track_metadata.additional_info.origin_url)
-
-                const preferredApi = getSongOnPreferredProvider(await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json()), link)
-                if (preferredApi) {
-                    const embed = new EmbedBuilder()
-                        .setAuthor({
-                            name: preferredApi.artist,
-                        })
-                        .setTitle(preferredApi.title)
-                        .setThumbnail(preferredApi.thumbnailUrl)
-                        .setFooter({
-                            text: "amy jr",
-                        });
-                    const nya = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setURL(preferredApi.link).setLabel("link").setStyle(ButtonStyle.Link))
-                    await interaction.followUp({
-                        components: [
-                            nya
-                        ],
-                        embeds: [embed]
+            const paramsObj = {entity: "song", term: track_metadata.artist_name + " " + track_metadata.track_name};
+            const searchParams = new URLSearchParams(paramsObj);
+            const itunesinfo = (await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()).results[0];
+            const link = itunesinfo.trackViewUrl
+            const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
+            const preferredApi = getSongOnPreferredProvider(songlink, link)
+            if (preferredApi) {
+                const embed = new EmbedBuilder()
+                    .setAuthor({
+                        name: preferredApi.artist,
+                    })
+                    .setTitle(preferredApi.title)
+                    .setThumbnail(preferredApi.thumbnailUrl)
+                    .setFooter({
+                        text: "amy jr",
                     });
-                    return
+                const meow = Object.keys(songlink.linksByPlatform)
+                let message = ""
+
+                const nya: ActionRowBuilder<ButtonBuilder>[] = [];
+                let currentRow = new ActionRowBuilder<ButtonBuilder>();
+
+                for (const meowi of meow) {
+                    if (currentRow.components.length >= 5) {
+                        nya.push(currentRow);
+                        currentRow = new ActionRowBuilder<ButtonBuilder>();
+                    }
+                    currentRow.addComponents(
+                        new ButtonBuilder()
+                            .setURL(songlink.linksByPlatform[meowi].url)
+                            .setLabel(meowi)
+                            .setStyle(ButtonStyle.Link)
+                    );
+                }
+                if (currentRow.components.length > 0) {
+                    nya.push(currentRow);
                 }
 
-            }
-            let hasURL = false;
-            if (track_metadata.additional_info.release_mbid) {
-                const thing = await fetch(`https://coverartarchive.org/release/${track_metadata.additional_info.release_mbid}/front`, {
-                    method: "HEAD",
-                    redirect: "manual",
-                })
-                hasURL = thing.status === 307;
-            }
-            let embed = new EmbedBuilder()
-                .setAuthor({
-                    name: track_metadata.artist_name,
-                })
-                .setTitle(track_metadata.track_name)
-                .setDescription("could not get additional info")
-                .setFooter({
-                    text: "amy jr",
+                await interaction.followUp({
+                    components: nya,
+                    embeds: [embed]
                 });
-            if (hasURL) {
-                embed.setThumbnail(`https://aart.yellows.ink/release/${track_metadata.additional_info.release_mbid}.webp`);
+            } else {
+                await interaction.followUp("what")
             }
-            await interaction.followUp({
-                embeds: [embed],
-            })
         }
 
     }
