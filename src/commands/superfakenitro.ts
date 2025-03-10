@@ -37,7 +37,7 @@ export default class SuperFakeNitroCommand extends Command {
             ) as Promise<RESTGetAPIApplicationEmojisResult>);
             const matches = data.items.filter(item => item.name && item.name.toLowerCase().includes(search.toLowerCase()))
             interaction.respond(matches.map(emoji => ({
-                name: 'emoji',
+                name: emoji.name!,
                 value: emoji.name!
             })))
         }
