@@ -56,3 +56,32 @@ export function getSongOnPreferredProvider(json: any, link: string): Song | null
     }
     return null
 }
+
+
+export function kyzaify(input: string): string {
+    //im gonna write this as shittily as possible just because.
+    if (input === "youtube") {
+        return "YouTube";
+    } else if (input === "youtubeMusic") {
+        return "YouTube Music";
+    } else if (input === "itunes") {
+        return "iTunes";
+    } else if (input === "soundcloud") {
+        return "SoundCloud";
+    }
+    if (input.length === 0) return input;
+
+    let result = input.charAt(0).toUpperCase();
+
+    for (let i = 1; i < input.length; i++) {
+        const char = input.charAt(i);
+
+        if (char === char.toUpperCase()) {
+            result += ' ' + char;
+        } else {
+            result += char;
+        }
+    }
+
+    return result;
+}

@@ -10,7 +10,7 @@ import {
     SlashCommandBuilder
 } from "discord.js";
 
-import {getSongOnPreferredProvider} from "../helper.ts"
+import {getSongOnPreferredProvider, kyzaify} from "../helper.ts"
 import {Config} from "../config.ts";
 
 function keepV(url: string): string {
@@ -70,7 +70,7 @@ export default class PingCommand extends Command {
                     currentRow.addComponents(
                         new ButtonBuilder()
                             .setURL(songlink.linksByPlatform[meowi].url)
-                            .setLabel(meowi)
+                            .setLabel(kyzaify(meowi))
                             .setStyle(ButtonStyle.Link)
                     );
                 }
