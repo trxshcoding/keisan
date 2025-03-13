@@ -7,7 +7,7 @@ import {
     SlashCommandBuilder
 } from "discord.js";
 import { Config } from "../config.ts";
-import {getSongOnPreferredProvider} from "../helper.ts";
+import {getSongOnPreferredProvider, kyzaify} from "../helper.ts";
 
 export default class MusicInfoCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {
@@ -30,7 +30,7 @@ export default class MusicInfoCommand extends Command {
             currentRow.addComponents(
                 new ButtonBuilder()
                     .setURL(info.linksByPlatform[meowi].url)
-                    .setLabel(meowi)
+                    .setLabel(kyzaify(meowi))
                     .setStyle(ButtonStyle.Link)
             );
         }
