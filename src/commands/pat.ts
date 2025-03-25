@@ -1,0 +1,73 @@
+
+import { Command } from "../command.ts";
+import {
+    ApplicationIntegrationType,
+    Attachment,
+    AttachmentBuilder,
+    ChatInputCommandInteraction,
+    InteractionContextType,
+    SlashCommandBuilder
+} from "discord.js";
+import { Config } from "../config.ts";
+import sharp, { SharpInput } from "sharp";
+import * as path from 'path';
+import { Canvas, loadImage } from "canvas";
+import { readdir, readFile } from "fs/promises";
+
+const patpatGifPath = path.join('src/commands/', 'patpatframes')
+
+export default class PingCommand extends Command {
+
+    async run(interaction: ChatInputCommandInteraction, config: Config) {
+        const user = interaction.options.getUser('user', true)
+        const avatarResponse = await fetch(user.avatarURL({})!)
+        const avatarBuf = Buffer.from(await avatarResponse.arrayBuffer())
+        const frames: SharpInput[] = []
+        const frame_avatar_positions = [
+            [32, 102, 73, 65],
+            [32, 112, 73, 47],
+        ] as const
+
+        let pos = 0
+        for (const framePath of await readdir(patpatGifPath)) {
+            if (!framePath.endsWith(".png")) continue
+            const filePath = path.join(patpatGifPath, framePath)
+            const patImage = await loadImage(filePath);
+            const composite = new Canvas(patImage.width, patImage.height)
+            const context = composite.getContext('2d');
+            const [x, y, w, h] = frame_avatar_positions[pos++]
+            const squishedAvatar = await loadImage(await sharp(avatarBuf).resize(w, h, {
+                fit: 'fill'
+            }).png().toBuffer())
+            context.drawImage(squishedAvatar, x, y)
+            context.drawImage(patImage, 0, 0)
+            frames.push(composite.toBuffer('image/png'))
+        }
+        const webP = await sharp(
+            frames,
+            { join: { animated: true } }
+        ).webp({ delay: new Array(pos).fill(200), loop: 0 }).toBuffer();
+        await interaction.reply({
+            content: `Patting ${user.displayName}`,
+            files: [
+                new AttachmentBuilder(webP)
+                    .setName('softcorepattingaction.webp')
+                    .setDescription(`the ${user.displayName} is being gently patted`),
+            ]
+        });
+    }
+
+    slashCommand = new SlashCommandBuilder()
+        .setName("pat")
+        .setDescription("Pats someone!").setIntegrationTypes([
+            ApplicationIntegrationType.UserInstall
+        ])
+        .addUserOption(builder => builder.setName("user")
+            .setDescription("The one to plap")
+            .setRequired(true))
+        .setContexts([
+            InteractionContextType.BotDM,
+            InteractionContextType.Guild,
+            InteractionContextType.PrivateChannel
+        ]);
+}

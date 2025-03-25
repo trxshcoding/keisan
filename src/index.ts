@@ -24,6 +24,7 @@ const commands: Command[] = []
 
 const commandDir = path.join(__dirname, "commands");
 for (const file of fs.readdirSync(commandDir)) {
+    if (!file.endsWith('.ts')) continue
     let command = await import(path.join(commandDir, file));
     commands.push(new command.default())
 }

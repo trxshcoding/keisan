@@ -9,12 +9,26 @@
     "check": "tsc"
   },
   "dependencies": {
+    "canvas": "^3.1.0",
     "discord.js": "^14.17.2",
+    "sharp": "git+ssh://git@github.com/lovell/sharp.git",
     "ts-node": "^10.9.2",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "typescript": "^5.5.3"
   },
-  "private": true
+  "private": true,
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "canvas"
+    ],
+    "onlyBuiltDependencies": [
+      "canvas",
+      "sharp"
+    ],
+    "patchedDependencies": {
+      "sharp@0.34.0-rc.0": "patches/sharp@0.34.0-rc.0.patch"
+    }
+  }
 }
