@@ -38,7 +38,7 @@ export default class PingCommand extends Command {
             return;
         }
         if (meow.payload.count === 0) {
-            await interaction.followUp("user isnt listening to music");
+            await interaction.followUp(user + " isnt listening to music");
         } else {
             const track_metadata = meow.payload.listens[0].track_metadata
             const paramsObj = {entity: "song", term: track_metadata.artist_name + " " + track_metadata.track_name};
