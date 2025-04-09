@@ -20,6 +20,7 @@ export default class PingCommand extends Command {
 
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         const user = interaction.options.getUser('user', true)
+        const speed = interaction.options.getInteger('speed') ?? 0
         const avatarResponse = await fetch(user.avatarURL({})!)
         const avatarBuf = Buffer.from(await avatarResponse.arrayBuffer())
         const frames: SharpInput[] = []
@@ -46,7 +47,7 @@ export default class PingCommand extends Command {
         const webP = await sharp(
             frames,
             { join: { animated: true } }
-        ).webp({ delay: new Array(pos).fill(200), loop: 0 }).toBuffer();
+        ).webp({ delay: new Array(pos).fill(200-speed), loop: 0 }).toBuffer();
         await interaction.reply({
             content: `Patting ${user.displayName}`,
             files: [
@@ -65,6 +66,9 @@ export default class PingCommand extends Command {
         .addUserOption(builder => builder.setName("user")
             .setDescription("The one to plap")
             .setRequired(true))
+        .addIntegerOption(builder => builder.setName("speed")
+            .setDescription("speed (higher is faster, max is 200)")
+            .setRequired(false))
         .setContexts([
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
