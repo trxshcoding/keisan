@@ -30,7 +30,8 @@ export default class PingCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         await interaction.deferReply()
         const user = interaction.options.getString("user") ?? config.listenbrainzAccount;
-        console.log(`https://api.listenbrainz.org/1/user/${user}/playing-now`);
+        const usesonglink = interaction.options.getBoolean("usesonglink") ?? true
+
         const meow = await fetch(`https://api.listenbrainz.org/1/user/${user}/playing-now`).then((res) => res.json());
         if (!meow) {
             await interaction.followUp("something shat itself!");
@@ -46,7 +47,8 @@ export default class PingCommand extends Command {
             const link = itunesinfo.trackViewUrl
             const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
             const preferredApi = getSongOnPreferredProvider(songlink, link)
-            if (preferredApi) {
+            
+            if (preferredApi && usesonglink) {
                 const embed = new EmbedBuilder()
                     .setAuthor({
                         name: preferredApi.artist,
@@ -83,7 +85,16 @@ export default class PingCommand extends Command {
                     embeds: [embed]
                 });
             } else {
-                await interaction.followUp("what")
+                const embedfallback = new EmbedBuilder()
+                    .setAuthor({
+                        name: meow.payload.listens[0].track_metadata.artist_name
+                    })
+                    .setTitle(meow.payload.listens[0].track_metadata.track_name)
+                    .setFooter({
+                        text: "song.link proxying was turned off or failed - amy jr",
+                    });
+                
+                await interaction.followUp({embeds:[embedfallback]})
             }
         }
 
@@ -93,7 +104,11 @@ export default class PingCommand extends Command {
         .setName("nowplaying")
         .setDescription("balls").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
-        ]).addStringOption(option => {
+        ])
+        .addBooleanOption(option => {
+            return option.setName("usesonglink").setDescription("use songlink or not").setRequired(false)
+        })
+        .addStringOption(option => {
             return option.setName("user").setDescription("listenbrainz username").setRequired(false)
         })
         .setContexts([

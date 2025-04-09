@@ -17,7 +17,6 @@ export default class MusicInfoCommand extends Command {
 
         //const meow = [...new Set(Object.values(info.linksByPlatform).map((i:any) => i.entityUniqueId))]
         const meow = Object.keys(info.linksByPlatform)
-        let message = ""
 
         const nya: ActionRowBuilder<ButtonBuilder>[] = [];
         let currentRow = new ActionRowBuilder<ButtonBuilder>();
