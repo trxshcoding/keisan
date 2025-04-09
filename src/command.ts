@@ -1,11 +1,15 @@
-import { AutocompleteFocusedOption, AutocompleteInteraction, ChatInputCommandInteraction, ContextMenuCommandBuilder, ContextMenuCommandInteraction, SharedSlashCommand, Snowflake, User } from "discord.js";
+import { ApplicationCommandType, AutocompleteFocusedOption, AutocompleteInteraction, ChatInputCommandInteraction, ContextMenuCommandBuilder, ContextMenuCommandInteraction, Message, SharedSlashCommand, Snowflake, User } from "discord.js";
 import { Config } from "./config";
 
 export abstract class ICommand { }
 
-export abstract class ContextCommand extends ICommand {
+export abstract class ContextCommand<T extends User | Message> extends ICommand {
+    abstract targetType:
+        T extends User ? ApplicationCommandType.User :
+        T extends Message ? ApplicationCommandType.Message :
+        never;
     abstract contextDefinition: ContextMenuCommandBuilder
-    abstract run(interaction: ContextMenuCommandInteraction, target: Snowflake): Promise<void>
+    abstract run(interaction: ContextMenuCommandInteraction, target: T extends User ? User : T extends Message ? Message : never): Promise<void>
 }
 
 export abstract class Command extends ICommand {

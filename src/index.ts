@@ -1,4 +1,6 @@
 import {
+    ApplicationCommand,
+    ApplicationCommandType,
     Client,
     Events,
     GatewayIntentBits,
@@ -43,6 +45,8 @@ const contextCommands = allCommands.filter(it => it instanceof ContextCommand);
 const contextCommandLUT = Object.fromEntries(contextCommands.map(it => [it.contextDefinition.name, it]))
 const commandLookup = Object.fromEntries(commands.map(it => [it.slashCommand.name, it]))
 
+contextCommands.forEach(it => it.contextDefinition.type === it.targetType)
+
 function makeDefaultAvailableEverywhere<T extends { setContexts(...contexts: Array<InteractionContextType>): any, readonly contexts?: InteractionContextType[] }>(t: T): T {
     if (!t.contexts)
         t.setContexts(InteractionContextType.BotDM, InteractionContextType.Guild, InteractionContextType.PrivateChannel)
@@ -69,8 +73,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         console.error("unknown context command: " + commandName)
         return
     }
+    // The <any> cast here is valid, since the type of the interaction is set in accordance to the definition
+    if (command.targetType != (interaction.isUserContextMenuCommand() ? ApplicationCommandType.User : ApplicationCommandType.Message))
+        console.error("Out of date discord definition of this context command")
     try {
-        await command.run(interaction, interaction.targetId)
+        await command.run(interaction, interaction.isUserContextMenuCommand() ? interaction.targetUser : interaction.targetMessage)
     } catch (e) {
         console.error("error during context command execution: " + commandName, e)
         interaction.reply("something sharted itself")
