@@ -3,12 +3,15 @@ import {
     Events,
     GatewayIntentBits,
     InteractionCallback,
+    InteractionContextType,
     REST,
+    RestOrArray,
     Routes,
+    SlashCommandBooleanOption,
 } from "discord.js";
 import path from "node:path";
 import fs from "node:fs";
-import { Command } from "./command.ts";
+import { Command, ContextCommand, ICommand } from "./command.ts";
 import { fileURLToPath } from "url";
 import { config } from "./config.ts";
 
@@ -19,28 +22,60 @@ const client = new Client({
     intents: [],
 });
 
-const commands: Command[] = []
-
+const allCommands: ICommand[] = []
 
 const commandDir = path.join(__dirname, "commands");
 for (const file of fs.readdirSync(commandDir)) {
     if (!file.endsWith('.ts')) continue
     let command = await import(path.join(commandDir, file));
-    commands.push(new command.default())
+    let instance
+    try {
+        instance = new command.default()
+    } catch (e) {
+        throw new Error(`Could not instantiate command from ${file}`, { cause: e })
+    }
+    if (!(instance instanceof ICommand))
+        throw `${instance} is not an ICommand instance (imported from ${file})`;
+    allCommands.push(instance)
 }
-
+const commands = allCommands.filter(it => it instanceof Command);
+const contextCommands = allCommands.filter(it => it instanceof ContextCommand);
+const contextCommandLUT = Object.fromEntries(contextCommands.map(it => [it.contextDefinition.name, it]))
 const commandLookup = Object.fromEntries(commands.map(it => [it.slashCommand.name, it]))
+
+function makeDefaultAvailableEverywhere<T extends { setContexts(...contexts: Array<InteractionContextType>): any, readonly contexts?: InteractionContextType[] }>(t: T): T {
+    if (!t.contexts)
+        t.setContexts(InteractionContextType.BotDM, InteractionContextType.Guild, InteractionContextType.PrivateChannel)
+    return t
+}
 
 client.once(Events.ClientReady, async () => {
     console.log("Ready");
     const rest = new REST().setToken(config.token);
-    const data = await rest.put(
-        Routes.applicationCommands(client.user!.id), { body: commands.map(command => command.slashCommand.toJSON()) },
-    );
+    const data = await client.application!.commands.set(
+        [
+            ...commands.map(it => it.slashCommand),
+            ...contextCommands.map(it => it.contextDefinition)
+        ].map(makeDefaultAvailableEverywhere)
+    )
     // @ts-ignore
-    console.log(`Successfully reloaded ${data.length} application (/) commands.`);
+    console.log(`Successfully reloaded ${data.size} application (/) commands.`);
 })
-
+client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isContextMenuCommand()) return;
+    const { commandName } = interaction
+    const command = contextCommandLUT[commandName]
+    if (!command) {
+        console.error("unknown context command: " + commandName)
+        return
+    }
+    try {
+        await command.run(interaction, interaction.targetId)
+    } catch (e) {
+        console.error("error during context command execution: " + commandName, e)
+        interaction.reply("something sharted itself")
+    }
+});
 client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -63,7 +98,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isAutocomplete()) return
-    const {commandName} = interaction;
+    const { commandName } = interaction;
 
     const command = commandLookup[commandName]
     if (!command) {
