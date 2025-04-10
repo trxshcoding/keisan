@@ -5,26 +5,28 @@ import {
     InteractionContextType, RESTGetAPIApplicationEmojisResult, Routes,
     SlashCommandBuilder
 } from "discord.js";
-import { Config } from "../config.ts";
+import { config, Config } from "../config.ts";
 
 export default class FediemojiCommand extends Command {
+    async getSharkeyEmojis() {
+        const emojis = (await fetch("https://" + config.sharkeyInstance + "/api/emojis").then((res) => res.json()))
+        const typedEmojis: Array<{ name: string , url: string}> = emojis.emojis
+        return typedEmojis
+    }
+
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         await interaction.deferReply();
         const emojiname = interaction.options.getString("emoji");
-        const data = await (interaction.client.rest.get(
-            Routes.applicationEmojis(interaction.applicationId)
-        ) as Promise<RESTGetAPIApplicationEmojisResult>);
-        const shit = data.items
+        const shit = await interaction.client.application.emojis.fetch();
         const theEmojiInApplicationEmojis = shit.find((item) => item.name === emojiname);
         if (!theEmojiInApplicationEmojis) {
-            const emojis = (await fetch("https://"+config.sharkeyInstance+"/api/emojis").then((res) => res.json()))
-            const emojiArray = emojis.emojis.map((i: {name: string}) => i.name)
-            const theEmojiWeWannaUpload = emojis.emojis.find((emoji:{name:string}) => emoji.name === emojiname)!;
+            const theEmojiWeWannaUpload = (await this.getSharkeyEmojis()).find((emoji) => emoji.name === emojiname)!;
             console.log(theEmojiWeWannaUpload)
-            interaction.client.application.emojis.create({
+            const emoji = await interaction.client.application.emojis.create({
                 attachment: theEmojiWeWannaUpload.url,
                 name: theEmojiWeWannaUpload.name,
-            }).then(emoji => interaction.followUp(`${emoji}`))
+            });
+            await interaction.followUp(`${emoji}`)
         } else {
             await interaction.followUp(`<${theEmojiInApplicationEmojis.animated ? 'a' : ''}:${theEmojiInApplicationEmojis.name}:${theEmojiInApplicationEmojis.id}>`)
         }
@@ -33,11 +35,10 @@ export default class FediemojiCommand extends Command {
     async autoComplete(interaction: AutocompleteInteraction, config: Config, option: AutocompleteFocusedOption): Promise<void> {
         if (option.name === 'emoji') {
             const search = option.value
-            const emojis = (await fetch("https://"+config.sharkeyInstance+"/api/emojis").then((res) => res.json()))
-            const emojiArray = emojis.emojis.map((i: {name: string}) => i.name)
+            const emojiArray = (await this.getSharkeyEmojis()).map((i) => i.name)
             const matches = emojiArray.filter((item: string) => item && item.toLowerCase().includes(search.toLowerCase())).slice(0, 25)
 
-            interaction.respond(matches.map((emoji: { name: any; }) => ({
+            interaction.respond(matches.map((emoji) => ({
                 name: emoji!,
                 value: emoji!
             })))
