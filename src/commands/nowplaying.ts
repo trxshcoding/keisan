@@ -31,6 +31,7 @@ export default class PingCommand extends Command {
         await interaction.deferReply()
         const user = interaction.options.getString("user") ?? config.listenbrainzAccount;
         const usesonglink = interaction.options.getBoolean("usesonglink") ?? true
+        const useitunes = interaction.options.getBoolean("useitunes") ?? true
 
         const meow = await fetch(`https://api.listenbrainz.org/1/user/${user}/playing-now`).then((res) => res.json());
         if (!meow) {
@@ -44,7 +45,10 @@ export default class PingCommand extends Command {
             const paramsObj = {entity: "song", term: track_metadata.artist_name + " " + track_metadata.track_name};
             const searchParams = new URLSearchParams(paramsObj);
             const itunesinfo = (await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()).results[0];
-            const link = itunesinfo.trackViewUrl
+            let link = track_metadata.additional_info.origin_url
+            if (useitunes) {
+                link = itunesinfo.trackViewUrl
+            }
             const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
             const preferredApi = getSongOnPreferredProvider(songlink, link)
             
@@ -107,6 +111,9 @@ export default class PingCommand extends Command {
         ])
         .addBooleanOption(option => {
             return option.setName("usesonglink").setDescription("use songlink or not").setRequired(false)
+        })
+        .addBooleanOption(option => {
+            return option.setName("useitunes").setDescription("use itunes or not").setRequired(false)
         })
         .addStringOption(option => {
             return option.setName("user").setDescription("listenbrainz username").setRequired(false)

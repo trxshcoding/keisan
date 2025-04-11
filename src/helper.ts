@@ -15,7 +15,7 @@ const songLinkShape = z.object({
             id: z.string(),
             type: z.string(),
             title: z.string(),
-            thumbnailUrl: z.string(),
+            thumbnailUrl: z.string().optional(),
             apiProvider: z.string(),
             artistName: z.string(),
         })
@@ -38,6 +38,10 @@ export const preferredProviders = [
 ];
 
 export function getSongOnPreferredProvider(json: any, link: string): Song | null {
+    if (json.statusCode === 500) {
+        return null;
+    }
+    console.log(json)
     const song = songLinkShape.parse(json);
     for (const platform of preferredProviders) {
         if (!song.linksByPlatform[platform]) {
@@ -46,11 +50,12 @@ export function getSongOnPreferredProvider(json: any, link: string): Song | null
         }
         const entityId = song.linksByPlatform[platform].entityUniqueId;
         const songInfo = song.entitiesByUniqueId[entityId]
+
         return {
             title: songInfo.title,
             artist: songInfo.artistName,
             apiProvider: songInfo.apiProvider,
-            thumbnailUrl: songInfo.thumbnailUrl,
+            thumbnailUrl: songInfo.thumbnailUrl!,
             link: song.linksByPlatform[platform].url,
         }
     }
