@@ -2,14 +2,12 @@ import {
     ApplicationCommandType,
     ContextMenuCommandBuilder,
     ContextMenuCommandInteraction, escapeCodeBlock,
-    InteractionContextType,
     Message,
-    Snowflake,
-    User, UserResolvable
+    type UserResolvable
 } from "discord.js";
 import { parse as acornParse } from 'acorn'
 import { ContextCommand } from "../command.ts";
-import {ModuleDeclaration, Statement} from "acorn";
+import {type ModuleDeclaration,type Statement} from "acorn";
 import {generate} from "astring";
 import {inspect} from "node:util";
 

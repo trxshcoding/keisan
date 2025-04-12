@@ -8,8 +8,8 @@ import {
     InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
-import { Config } from "../config.ts";
-import sharp, { SharpInput } from "sharp";
+import { type Config } from "../config.ts";
+import sharp, { type SharpInput } from "sharp";
 import * as path from 'path';
 import { Canvas, loadImage } from "canvas";
 import { readdir, readFile } from "fs/promises";

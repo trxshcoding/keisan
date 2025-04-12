@@ -1,11 +1,11 @@
 import {Command} from "../command.ts";
 import {
-    ApplicationIntegrationType, AutocompleteFocusedOption, AutocompleteInteraction,
+    ApplicationIntegrationType, type AutocompleteFocusedOption, AutocompleteInteraction,
     ChatInputCommandInteraction,
-    InteractionContextType, RESTGetAPIApplicationEmojisResult, Routes,
+    InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
-import { config, Config } from "../config.ts";
+import { config, type Config } from "../config.ts";
 
 export default class FediemojiCommand extends Command {
     async getSharkeyEmojis() {

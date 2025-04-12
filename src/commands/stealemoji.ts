@@ -5,7 +5,7 @@ import {
     InteractionContextType, Routes,
     SlashCommandBuilder
 } from "discord.js";
-import {Config} from "../config.ts";
+import {type Config} from "../config.ts";
 
 
 export default class StealEmojiCommand extends Command {

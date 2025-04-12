@@ -11,7 +11,7 @@ import {
 } from "discord.js";
 
 import {getSongOnPreferredProvider, kyzaify} from "../helper.ts"
-import {Config} from "../config.ts";
+import {type Config} from "../config.ts";
 
 function keepV(url: string): string {
     const urlObj = new URL(url);

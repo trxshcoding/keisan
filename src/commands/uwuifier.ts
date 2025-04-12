@@ -2,11 +2,7 @@ import {
     ApplicationCommandType,
     ContextMenuCommandBuilder,
     ContextMenuCommandInteraction,
-    InteractionContextType,
-    Message,
-    Snowflake,
-    User
-} from "discord.js";
+    Message} from "discord.js";
 import { ContextCommand } from "../command.ts";
 
 export default class Uwuifier extends ContextCommand<Message> {

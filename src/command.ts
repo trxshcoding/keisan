@@ -1,5 +1,5 @@
 import { ApplicationCommandType, type AutocompleteFocusedOption, AutocompleteInteraction, ChatInputCommandInteraction, ContextMenuCommandBuilder, ContextMenuCommandInteraction, Message, SharedSlashCommand, User } from "discord.js";
-import { type Config } from "./config";
+import { type Config } from "./config.ts";
 
 export abstract class ICommand { }
 

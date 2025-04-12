@@ -1,13 +1,13 @@
 import { Command } from "../command.ts";
 import {
     ApplicationIntegrationType,
-    AutocompleteFocusedOption,
+    type AutocompleteFocusedOption,
     AutocompleteInteraction,
     ChatInputCommandInteraction,
-    InteractionContextType, REST, RESTGetAPIApplicationEmojisResult, Routes,
+    InteractionContextType, 
     SlashCommandBuilder
 } from "discord.js";
-import { config, Config } from "../config.ts";
+import type { Config } from "../config.ts";
 
 export default class SuperFakeNitroCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {

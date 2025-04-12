@@ -17,5 +17,5 @@
             "module": "ESNext"
         }
     },
-    "include": ["src/*"]
+    "include": ["src/**/*.ts"]
 }
