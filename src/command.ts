@@ -1,5 +1,5 @@
-import { ApplicationCommandType, AutocompleteFocusedOption, AutocompleteInteraction, ChatInputCommandInteraction, ContextMenuCommandBuilder, ContextMenuCommandInteraction, Message, SharedSlashCommand, Snowflake, User } from "discord.js";
-import { Config } from "./config";
+import { ApplicationCommandType, type AutocompleteFocusedOption, AutocompleteInteraction, ChatInputCommandInteraction, ContextMenuCommandBuilder, ContextMenuCommandInteraction, Message, SharedSlashCommand, User } from "discord.js";
+import { type Config } from "./config";
 
 export abstract class ICommand { }
 

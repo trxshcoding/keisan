@@ -1,15 +1,9 @@
 import {
-    ApplicationCommand,
     ApplicationCommandType,
     Client,
     Events,
-    GatewayIntentBits,
-    InteractionCallback,
     InteractionContextType,
     REST,
-    RestOrArray,
-    Routes,
-    SlashCommandBooleanOption,
 } from "discord.js";
 import path from "node:path";
 import fs from "node:fs";
