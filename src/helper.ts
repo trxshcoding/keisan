@@ -37,12 +37,12 @@ export const preferredProviders = [
     "itunes"
 ];
 
-export function getSongOnPreferredProvider(json: any, link: string): Song | null {
-    if (json.statusCode === 500) {
+export function getSongOnPreferredProvider(json: unknown, link: string): Song | null {
+    const maybesong = songLinkShape.safeParse(json);
+    if (!maybesong.success) {
         return null;
     }
-    console.log(json)
-    const song = songLinkShape.parse(json);
+    const song = maybesong.data;
     for (const platform of preferredProviders) {
         if (!song.linksByPlatform[platform]) {
             console.log(`couldnt find song on ${platform}`)

@@ -11,35 +11,26 @@ import { config, Config } from "../config.ts";
 
 export default class SuperFakeNitroCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {
-        const emojiname = interaction.options.getString("emoji");
-        const data = await (interaction.client.rest.get(
-            Routes.applicationEmojis(interaction.applicationId)
-        ) as Promise<RESTGetAPIApplicationEmojisResult>);
-        const shit = data.items
-        const theemoji = shit.find((item) => item.name === emojiname)!;
-        let string = "<";
-        if (theemoji.animated) {
-            string += `a`;
+        const emojiname = interaction.options.getString("emoji")!;
+        const shit = await (interaction.client.application.emojis.fetch());
+
+        const theemoji = shit.get(emojiname);
+        if (!theemoji) {
+            await interaction.reply("this isnt supposed to happen. how");
+            return;
         }
-        string += `:`;
-        string += theemoji.name;
-        string += `:`;
-        string += theemoji.id;
-        string += `>`;
-        await interaction.reply(string);
+        await interaction.reply(`${theemoji}`);
     }
 
     async autoComplete(interaction: AutocompleteInteraction, config: Config, option: AutocompleteFocusedOption): Promise<void> {
         if (option.name === 'emoji') {
             const search = option.value
-            const data = await (interaction.client.rest.get(
-                Routes.applicationEmojis(interaction.applicationId)
-            ) as Promise<RESTGetAPIApplicationEmojisResult>);
-            const matches = data.items.filter(item => item.name && item.name.toLowerCase().includes(search.toLowerCase()))
-            interaction.respond(matches.map(emoji => ({
-                name: emoji.name!,
-                value: emoji.name!
-            })))
+            const data = await (interaction.client.application.emojis.fetch());
+            const matches = data.keys().filter(item => item && item.toLowerCase().includes(search.toLowerCase()))
+            await interaction.respond([...matches.map(emoji => ({
+                name: emoji,
+                value: emoji
+            }))])
         }
     }
 
