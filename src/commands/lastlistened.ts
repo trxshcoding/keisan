@@ -31,12 +31,19 @@ export default class LastListenedCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         await interaction.deferReply()
         const user = interaction.options.getString("user") ?? config.listenbrainzAccount;
+        const historyAmount = interaction.options.getInteger("count") ?? 3;
         const meow = await fetch(`https://api.listenbrainz.org/1/user/${user}/listens`).then((res) => res.json());
         const zodded = listenBrainzListensShape.parse(meow)
-        const object = zodded.payload.listens.slice(0, 3);
+        const object = zodded.payload.listens.slice(0, historyAmount);
+
+        const songs = object.slice(0, historyAmount).map((i) => {
+            const shit = i.track_metadata;
+            const name = shit.track_name;
+            return `- ${name} by ${shit.artist_name}`;
+        }).join('\n');
 
         await interaction.followUp({
-            content: `the last 3 songs of ${user} was:\n\n- ${object[0].track_metadata.release_name} by ${object[0].track_metadata.artist_name}\n- ${object[1].track_metadata.release_name} by ${object[1].track_metadata.artist_name}\n- ${object[2].track_metadata.release_name} by ${object[2].track_metadata.artist_name}`
+            content: `The last ${historyAmount} songs of ${user} were:\n\n${songs}`
         });
     }
 
@@ -45,6 +52,9 @@ export default class LastListenedCommand extends Command {
         .setDescription("get that last listened music of a person").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
         ])
+        .addIntegerOption(option => {
+            return option.setName("count").setDescription("amount of history you want").setRequired(false)
+        })
         .addStringOption(option => {
             return option.setName("user").setDescription("listenbrainz username").setRequired(false)
         })
