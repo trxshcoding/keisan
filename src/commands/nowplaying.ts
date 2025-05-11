@@ -4,10 +4,11 @@ import {
     ApplicationIntegrationType,
     ButtonBuilder,
     ButtonStyle,
-    ChatInputCommandInteraction,
+    ChatInputCommandInteraction, ContainerBuilder,
     EmbedBuilder,
-    InteractionContextType,
-    SlashCommandBuilder
+    MessageFlags,
+    InteractionContextType, type MessageActionRowComponentBuilder, MessageFlagsBitField,
+    SlashCommandBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder
 } from "discord.js";
 
 import {getSongOnPreferredProvider, kyzaify} from "../helper.ts"
@@ -51,17 +52,21 @@ export default class PingCommand extends Command {
             }
             const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
             const preferredApi = getSongOnPreferredProvider(songlink, link)
-            
+
             if (preferredApi && usesonglink) {
-                const embed = new EmbedBuilder()
-                    .setAuthor({
-                        name: preferredApi.artist,
-                    })
-                    .setTitle(preferredApi.title)
-                    .setThumbnail(preferredApi.thumbnailUrl)
-                    .setFooter({
-                        text: "amy jr",
-                    });
+                const components = [
+                    new ContainerBuilder()
+                        .addSectionComponents(
+                            new SectionBuilder()
+                                .setThumbnailAccessory(
+                                    new ThumbnailBuilder()
+                                        .setURL(preferredApi.thumbnailUrl)
+                                )
+                                .addTextDisplayComponents(
+                                    new TextDisplayBuilder().setContent(`# ${preferredApi.artist} - ${preferredApi.title}`),
+                                ),
+                        )
+                ];
                 const meow = Object.keys(songlink.linksByPlatform)
                 let message = ""
 
@@ -80,14 +85,14 @@ export default class PingCommand extends Command {
                             .setStyle(ButtonStyle.Link)
                     );
                 }
+                components[0].addActionRowComponents(nya)
                 if (currentRow.components.length > 0) {
                     nya.push(currentRow);
                 }
-
                 await interaction.followUp({
-                    components: nya,
-                    embeds: [embed]
-                });
+                    components: components,
+                    flags: [MessageFlags.IsComponentsV2],
+                })
             } else {
                 const embedfallback = new EmbedBuilder()
                     .setAuthor({
