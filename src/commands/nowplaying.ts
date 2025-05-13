@@ -13,6 +13,7 @@ import {
 
 import {getSongOnPreferredProvider, kyzaify} from "../helper.ts"
 import {type Config} from "../config.ts";
+import type {S3Client} from "@aws-sdk/client-s3";
 
 function keepV(url: string): string {
     const urlObj = new URL(url);
@@ -28,12 +29,11 @@ function keepV(url: string): string {
 }
 
 export default class PingCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+    async run(interaction: ChatInputCommandInteraction, config: Config, s3: S3Client): Promise<void> {
         await interaction.deferReply()
         const user = interaction.options.getString("user") ?? config.listenbrainzAccount;
         const usesonglink = interaction.options.getBoolean("usesonglink") ?? true
         const useitunes = interaction.options.getBoolean("useitunes") ?? true
-
         const meow = await fetch(`https://api.listenbrainz.org/1/user/${user}/playing-now`).then((res) => res.json());
         if (!meow) {
             await interaction.followUp("something shat itself!");

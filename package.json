@@ -9,6 +9,7 @@
     "check": "tsc"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.808.0",
     "@types/node": "^22.14.0",
     "acorn": "^8.14.1",
     "astring": "^1.9.0",

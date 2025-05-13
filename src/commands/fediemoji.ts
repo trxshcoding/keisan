@@ -14,7 +14,7 @@ export default class FediemojiCommand extends Command {
         return typedEmojis
     }
 
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+    async run(interaction: ChatInputCommandInteraction, config: Config, ) {
         await interaction.deferReply();
         const emojiname = interaction.options.getString("emoji");
         const shit = await interaction.client.application.emojis.fetch();

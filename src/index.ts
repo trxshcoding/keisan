@@ -10,6 +10,7 @@ import fs from "node:fs";
 import { Command, ContextCommand, ICommand } from "./command.ts";
 import { fileURLToPath } from "url";
 import { config } from "./config.ts";
+import {ListObjectsV2Command, S3Client} from "@aws-sdk/client-s3";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +21,14 @@ const client = new Client({
 
 const allCommands: ICommand[] = []
 
+const S3 = new S3Client({
+    region: "auto",
+    endpoint: `https://${config.R2AccountID}.r2.cloudflarestorage.com`,
+    credentials: {
+        accessKeyId: config.R2AccessKeyId,
+        secretAccessKey: config.R2SecretAccessKey,
+    },
+});
 const commandDir = path.join(__dirname, "commands");
 for (const file of fs.readdirSync(commandDir)) {
     if (!file.endsWith('.ts')) continue
@@ -89,7 +98,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     try {
-        await command.run(interaction, config);
+        await command.run(interaction, config, S3);
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
         interaction.reply("something sharted itself")
@@ -108,7 +117,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     try {
-        await command.autoComplete(interaction, config, interaction.options.getFocused(true));
+        await command.autoComplete(interaction, config, interaction.options.getFocused(true), S3);
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
     }
