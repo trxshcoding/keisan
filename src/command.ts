@@ -10,7 +10,7 @@ export abstract class ContextCommand<T extends User | Message> extends ICommand 
         T extends Message ? ApplicationCommandType.Message :
         never;
     abstract contextDefinition: ContextMenuCommandBuilder
-    abstract run(interaction: ContextMenuCommandInteraction, target: T extends User ? User : T extends Message ? Message : never): Promise<void>
+    abstract run(interaction: ContextMenuCommandInteraction, target: T extends User ? User : T extends Message ? Message : never, config: Config): Promise<void>
 }
 
 export abstract class Command extends ICommand {

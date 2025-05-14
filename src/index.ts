@@ -9,7 +9,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { Command, ContextCommand, ICommand } from "./command.ts";
 import { fileURLToPath } from "url";
-import { config } from "./config.ts";
+import {type Config, config} from "./config.ts";
 import {ListObjectsV2Command, S3Client} from "@aws-sdk/client-s3";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,6 +29,7 @@ const S3 = new S3Client({
         secretAccessKey: config.R2SecretAccessKey,
     },
 });
+const enrichedConfig = {...config, s3:S3} satisfies Config;
 const commandDir = path.join(__dirname, "commands");
 for (const file of fs.readdirSync(commandDir)) {
     if (!file.endsWith('.ts')) continue
@@ -80,7 +81,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (command.targetType != (interaction.isUserContextMenuCommand() ? ApplicationCommandType.User : ApplicationCommandType.Message))
         console.error("Out of date discord definition of this context command")
     try {
-        await command.run(interaction, interaction.isUserContextMenuCommand() ? interaction.targetUser : interaction.targetMessage)
+        await command.run(interaction, interaction.isUserContextMenuCommand() ? interaction.targetUser : interaction.targetMessage, enrichedConfig)
     } catch (e) {
         console.error("error during context command execution: " + commandName, e)
         interaction.reply("something sharted itself")
@@ -98,7 +99,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     try {
-        await command.run(interaction, config, S3);
+        await command.run(interaction, enrichedConfig, S3);
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
         interaction.reply("something sharted itself")
@@ -117,7 +118,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     try {
-        await command.autoComplete(interaction, config, interaction.options.getFocused(true), S3);
+        await command.autoComplete(interaction, enrichedConfig, interaction.options.getFocused(true), S3);
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
     }
