@@ -10,8 +10,7 @@ const configT = z.object({
   R2AccessKeyId: z.string(),
   R2SecretAccessKey: z.string(),
 });
-export type RawConfig = z.infer<typeof configT>;
-export type Config = RawConfig & {s3: S3Client}
-export const config: RawConfig = configT.parse(rawconfig);
+export type Config = z.infer<typeof configT>;
+export const config: Config = configT.parse(rawconfig);
 
 

@@ -6,48 +6,84 @@ import {
     SlashCommandBuilder
 } from "discord.js";
 import {config, type Config} from "../config.ts";
-import {ListObjectsV2Command, type S3Client} from "@aws-sdk/client-s3";
 import {inspect} from "node:util";
+import fs from "node:fs/promises";
+import path from "node:path";
+import {fileURLToPath} from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const BUCKETNAME = "shitposts" as const;
+export const DOWNLOAD_FOLDER_PATH = path.join(__dirname, '..', '..', 'shitposts');
+async function getFilesInFolder(folderPath: string): Promise<{ name: string, value: string }[]> {
+    try {
+        const files = await fs.readdir(folderPath);
+        const fileList: { name: string, value: string }[] = [];
+
+        for (const file of files) {
+            const filePath = path.join(folderPath, file);
+            const stats = await fs.stat(filePath);
+
+            if (stats.isFile()) {
+                fileList.push({
+                    name: file,
+                    value: file
+                });
+            }
+        }
+        return fileList;
+    } catch (error) {
+        console.error(`Error reading directory ${folderPath}:`, error);
+        return [];
+    }
+}
 export default class ShitPostCommand extends Command {
 
 
-    async run(interaction: ChatInputCommandInteraction, config: Config, s3: S3Client) {
+    async run(interaction: ChatInputCommandInteraction, config: Config) {
         await interaction.deferReply();
-        const shitpost = interaction.options.getString("shitpost")!;
+        const fileName = interaction.options.getString('shitpost', true);
 
-        const shitpostUrl = "https://sp.amy.rip/" + encodeURIComponent(shitpost);
+        const filePath = path.join(DOWNLOAD_FOLDER_PATH, fileName);
 
         try {
-            const response = await fetch(shitpostUrl);
+            await fs.access(filePath);
+            const attachment = new AttachmentBuilder(filePath, { name: fileName });
+            await interaction.editReply({
+                files: [attachment]
+            });
 
-            if (!response.ok) {
-                await interaction.followUp({content: "S3 bucket shat itself??????"});
-                return;
+        } catch (error: any) {
+            if (error.code === 'ENOENT') {
+                console.error(`file not found ${filePath}`, error);
+                await interaction.editReply({
+                    content: `\`${fileName}\`. wasnt found, aka something shat itself`,
+                });
+            } else {
+                console.error(`Error sending file ${fileName}:`, error);
+                await interaction.editReply({
+                    content: `buh, shitpost (\`${fileName}\`) wasnt posted.`,
+                });
             }
-
-            const buffer = await response.arrayBuffer();
-            const attachment = new AttachmentBuilder(Buffer.from(buffer), {name: shitpost});
-
-            await interaction.followUp({files: [attachment]});
-
-        } catch (error) {
-            await interaction.followUp({content: "fileproccessing shat itself"});
         }
     }
 
-    async autoComplete(interaction: AutocompleteInteraction, config: Config, option: AutocompleteFocusedOption, s3: S3Client): Promise<void> {
 
-        await interaction.respond((await s3.send(new ListObjectsV2Command({Bucket: BUCKETNAME}))).Contents!
-            .filter((i): i is { Key: string } => !!i.Key)
-            .map(key => ({name: key.Key, value: key.Key})))
+    async autoComplete(interaction: AutocompleteInteraction, config: Config, option: AutocompleteFocusedOption): Promise<void> {
+        const files = await getFilesInFolder(DOWNLOAD_FOLDER_PATH);
 
+        const focusedValue = option.value.toLowerCase();
+        const filteredFiles = files.filter(choice => choice.name.toLowerCase().includes(focusedValue));
+
+        await interaction.respond(
+            filteredFiles.slice(0, 25)
+        );
     }
 
     slashCommand = new SlashCommandBuilder()
         .setName("shitpost")
-        .setDescription("shitpost with S3!!!!!").setIntegrationTypes([
+        .setDescription("shitpost with the posix file system!!!!!!").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
         ]).addStringOption(option => {
             return option.setName("shitpost").setRequired(true).setDescription("the shitposts name")

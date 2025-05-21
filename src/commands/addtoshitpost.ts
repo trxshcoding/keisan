@@ -5,9 +5,14 @@ import {
     Message
 } from "discord.js";
 import { ContextCommand } from "../command.ts";
-import {PutObjectCommand, type S3Client} from "@aws-sdk/client-s3";
 import type {Config} from "../config.ts";
 import {BUCKETNAME} from "./shitpost.ts";
+import fs from "node:fs/promises";
+import path from "node:path";
+import {fileURLToPath} from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default class Mock extends ContextCommand<Message> {
     targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
@@ -16,26 +21,40 @@ export default class Mock extends ContextCommand<Message> {
             .setName('AddToShitposts')
             .setType(ApplicationCommandType.Message)
     async run(interaction: ContextMenuCommandInteraction, target: Message, config:Config): Promise<void> {
-        await interaction.deferReply()
-        await interaction.followUp({content: "uploading..."})
-        for (const [_, attachment] of target.attachments) {
+        await interaction.deferReply();
+        await interaction.followUp({content: "uploading..."});
 
-            const response = await fetch(attachment.proxyURL);
+        const downloadFolderPath = path.join(__dirname, '..', '..', 'shitposts');
+
+        try {
+            await fs.mkdir(downloadFolderPath, { recursive: true });
+        } catch (error) {
+            console.error("Error creating download folder:", error);
+            await interaction.editReply({ content: "the fucking posix file system failed me (download foler couldnt be made)" });
+            return;
+        }
+
+        for (const [_, attachment] of target.attachments) {
+            const response = await fetch(attachment.url);
 
             if (!response.ok) {
-                await interaction.reply({ content: "discord shat itself??????" });
+                await interaction.editReply({ content: "discord shat itself while fetching an attachment!?" });
                 return;
             }
 
             const buffer = await response.arrayBuffer();
+            const fileName = attachment.name || `attachment_${attachment.id}`;
+            const filePath = path.join(downloadFolderPath, fileName);
 
-            const command = new PutObjectCommand({
-                Bucket: BUCKETNAME,
-                Key: attachment.name,
-                Body: Buffer.from(buffer),
-            });
-            await config.s3.send(command)
+            try {
+                await fs.writeFile(filePath, Buffer.from(buffer));
+                console.log(`Downloaded: ${fileName}`);
+            } catch (error) {
+                console.error(`Error downloading ${fileName}:`, error);
+                await interaction.editReply({ content: `Failed to download ${fileName}.` });
+                return;
+            }
         }
-        await interaction.editReply({content: "shits have been posted"})
+        await interaction.editReply({content: "shits have been posted!"});
     }
 }

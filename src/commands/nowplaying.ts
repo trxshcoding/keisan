@@ -29,7 +29,7 @@ function keepV(url: string): string {
 }
 
 export default class PingCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config: Config, s3: S3Client): Promise<void> {
+    async run(interaction: ChatInputCommandInteraction, config: Config): Promise<void> {
         await interaction.deferReply()
         const user = interaction.options.getString("user") ?? config.listenbrainzAccount;
         const usesonglink = interaction.options.getBoolean("usesonglink") ?? true

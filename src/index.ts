@@ -21,15 +21,7 @@ const client = new Client({
 
 const allCommands: ICommand[] = []
 
-const S3 = new S3Client({
-    region: "auto",
-    endpoint: `https://${config.R2AccountID}.r2.cloudflarestorage.com`,
-    credentials: {
-        accessKeyId: config.R2AccessKeyId,
-        secretAccessKey: config.R2SecretAccessKey,
-    },
-});
-const enrichedConfig = {...config, s3:S3} satisfies Config;
+
 const commandDir = path.join(__dirname, "commands");
 for (const file of fs.readdirSync(commandDir)) {
     if (!file.endsWith('.ts')) continue
@@ -81,7 +73,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (command.targetType != (interaction.isUserContextMenuCommand() ? ApplicationCommandType.User : ApplicationCommandType.Message))
         console.error("Out of date discord definition of this context command")
     try {
-        await command.run(interaction, interaction.isUserContextMenuCommand() ? interaction.targetUser : interaction.targetMessage, enrichedConfig)
+        await command.run(interaction, interaction.isUserContextMenuCommand() ? interaction.targetUser : interaction.targetMessage, config)
     } catch (e) {
         console.error("error during context command execution: " + commandName, e)
         interaction.reply("something sharted itself")
@@ -99,7 +91,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     try {
-        await command.run(interaction, enrichedConfig, S3);
+        await command.run(interaction, config);
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
         interaction.reply("something sharted itself")
@@ -118,7 +110,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     try {
-        await command.autoComplete(interaction, enrichedConfig, interaction.options.getFocused(true), S3);
+        await command.autoComplete(interaction, config, interaction.options.getFocused(true));
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
     }
