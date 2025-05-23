@@ -16,7 +16,7 @@ const __dirname = path.dirname(__filename);
 
 export const BUCKETNAME = "shitposts" as const;
 export const DOWNLOAD_FOLDER_PATH = path.join(__dirname, '..', '..', 'shitposts');
-async function getFilesInFolder(folderPath: string): Promise<{ name: string, value: string }[]> {
+export async function getFilesInFolder(folderPath: string): Promise<{ name: string, value: string }[]> {
     try {
         const files = await fs.readdir(folderPath);
         const fileList: { name: string, value: string }[] = [];
