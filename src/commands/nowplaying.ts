@@ -33,7 +33,7 @@ export default class PingCommand extends Command {
         await interaction.deferReply()
         const user = interaction.options.getString("user") ?? config.listenbrainzAccount;
         const usesonglink = interaction.options.getBoolean("usesonglink") ?? true
-        const useitunes = interaction.options.getBoolean("useitunes") ?? true
+        const useitunes = interaction.options.getBoolean("useitunes") ?? false
         const meow = await fetch(`https://api.listenbrainz.org/1/user/${user}/playing-now`).then((res) => res.json());
         if (!meow) {
             await interaction.followUp("something shat itself!");
