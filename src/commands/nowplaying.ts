@@ -68,7 +68,6 @@ export default class PingCommand extends Command {
                         )
                 ];
                 const meow = Object.keys(songlink.linksByPlatform)
-                let message = ""
 
                 const nya: ActionRowBuilder<ButtonBuilder>[] = [];
                 let currentRow = new ActionRowBuilder<ButtonBuilder>();
@@ -85,10 +84,10 @@ export default class PingCommand extends Command {
                             .setStyle(ButtonStyle.Link)
                     );
                 }
-                components[0].addActionRowComponents(nya)
                 if (currentRow.components.length > 0) {
                     nya.push(currentRow);
                 }
+                components[0].addActionRowComponents(nya)
                 await interaction.followUp({
                     components: components,
                     flags: [MessageFlags.IsComponentsV2],
@@ -102,7 +101,7 @@ export default class PingCommand extends Command {
                     .setFooter({
                         text: "song.link proxying was turned off or failed - amy jr",
                     });
-                
+
                 await interaction.followUp({embeds:[embedfallback]})
             }
         }
