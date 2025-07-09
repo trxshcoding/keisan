@@ -73,7 +73,7 @@ export default class PingCommand extends Command {
                 let currentRow = new ActionRowBuilder<ButtonBuilder>();
 
                 for (const meowi of meow) {
-                    if (currentRow.components.length >= 5) {
+                    if (currentRow.components.length >= 4) {
                         nya.push(currentRow);
                         currentRow = new ActionRowBuilder<ButtonBuilder>();
                     }
