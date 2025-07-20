@@ -2,9 +2,9 @@ import {Command} from "../command.ts";
 import {
     ActionRowBuilder,
     ApplicationIntegrationType, ButtonBuilder, ButtonStyle,
-    ChatInputCommandInteraction, EmbedBuilder,
-    InteractionContextType,
-    SlashCommandBuilder
+    ChatInputCommandInteraction, ContainerBuilder, EmbedBuilder,
+    InteractionContextType, MessageFlags, SectionBuilder,
+    SlashCommandBuilder, TextDisplayBuilder, ThumbnailBuilder
 } from "discord.js";
 import { type Config } from "../config.ts";
 import {getSongOnPreferredProvider, kyzaify} from "../helper.ts";
@@ -15,14 +15,26 @@ export default class MusicInfoCommand extends Command {
         const link = interaction.options.getString("link")!
         const info = await fetch("https://api.song.link/v1-alpha.1/links?url=" + link).then((res) => res.json());
 
-        //const meow = [...new Set(Object.values(info.linksByPlatform).map((i:any) => i.entityUniqueId))]
         const meow = Object.keys(info.linksByPlatform)
 
         const nya: ActionRowBuilder<ButtonBuilder>[] = [];
         let currentRow = new ActionRowBuilder<ButtonBuilder>();
-
+        const infoPreferred = getSongOnPreferredProvider(info, link)!
+        const components = [
+            new ContainerBuilder()
+                .addSectionComponents(
+                    new SectionBuilder()
+                        .setThumbnailAccessory(
+                            new ThumbnailBuilder()
+                                .setURL(infoPreferred.thumbnailUrl)
+                        )
+                        .addTextDisplayComponents(
+                            new TextDisplayBuilder().setContent(`# ${infoPreferred.artist} - ${infoPreferred.title}`),
+                        ),
+                )
+        ];
         for (const meowi of meow) {
-            if (currentRow.components.length >= 5) {
+            if (currentRow.components.length >= 4) {
                 nya.push(currentRow);
                 currentRow = new ActionRowBuilder<ButtonBuilder>();
             }
@@ -36,20 +48,11 @@ export default class MusicInfoCommand extends Command {
         if (currentRow.components.length > 0) {
             nya.push(currentRow);
         }
+        components[0].addActionRowComponents(nya)
 
-        const infoPreferred = getSongOnPreferredProvider(info, link)!
-        const mrrrr = new EmbedBuilder()
-            .setAuthor({
-                name: infoPreferred.artist,
-            })
-            .setTitle(infoPreferred.title)
-            .setThumbnail(infoPreferred.thumbnailUrl)
-            .setFooter({
-                text: "amy jr",
-            });
         await interaction.followUp({
-            embeds: [mrrrr],
-            components: nya
+            components,
+            flags: [MessageFlags.IsComponentsV2],
         });
 
     }
