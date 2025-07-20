@@ -90,3 +90,10 @@ export function kyzaify(input: string): string {
 
     return result;
 }
+
+export function trimWhitespace(input: string): string;
+export function trimWhitespace(input: string[]): string[];
+
+export function trimWhitespace(input: string | string[]) {
+    return Array.isArray(input) ? input.map(s => s.trim()) : input.trim();
+}
