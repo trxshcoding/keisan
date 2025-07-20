@@ -51,7 +51,11 @@ export default class fediLookUpCommand extends Command {
                                     .setURL(resp.user.avatarUrl)
                             )
                             .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(`## ${resp.user.name} (@${resp.user.username}@${resp.user.host})`),
+                                /*
+                                if host is null, its the same host as the api
+                                why is it written like this? idfk
+                                */
+                                new TextDisplayBuilder().setContent(`## ${resp.user.name} (@${resp.user.username}@${resp.user.host === null ? config.sharkeyInstance : resp.user.host})`),
                             ),
                     )
                     .addTextDisplayComponents(
@@ -120,7 +124,8 @@ export default class fediLookUpCommand extends Command {
                         )
                         .addTextDisplayComponents(
                             new TextDisplayBuilder().setContent(`## ${resp.name}`),
-                            new TextDisplayBuilder().setContent(`@${resp.username}@${resp.host}`),
+                            //same as above. host is null when its the same as the api
+                            new TextDisplayBuilder().setContent(`@${resp.username}@${resp.host === null ? config.sharkeyInstance : resp.host}`),
                         ),
                 )
                 .addTextDisplayComponents(
