@@ -45,6 +45,7 @@ export default class fediLookUpCommand extends Command {
             let mainComponent
             const components:(TextDisplayBuilder|ContainerBuilder|ActionRowBuilder<MessageActionRowComponentBuilder>)[] = [
                 mainComponent = new ContainerBuilder()
+                    .setSpoiler(resp.cw !== null)
                     .addSectionComponents(
                         new SectionBuilder()
                             .setThumbnailAccessory(
@@ -58,11 +59,7 @@ export default class fediLookUpCommand extends Command {
                                 */
                                 new TextDisplayBuilder().setContent(`## ${resp.user.name} (@${resp.user.username}@${resp.user.host === null ? config.sharkeyInstance : resp.user.host})`),
                             ),
-                    )
-                    .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(!resp.text ? "" : resp.text),
-                    )
-                    .setSpoiler(resp.cw !== null),
+                    ),
                 new ActionRowBuilder<MessageActionRowComponentBuilder>()
                     .addComponents(
                         new ButtonBuilder()
@@ -77,6 +74,11 @@ export default class fediLookUpCommand extends Command {
                     ),
             ]
 
+            if  (resp.text) {
+                mainComponent.addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(resp.text),
+                )
+            }
 
             if (resp.files.length > 0){
                 const images = new MediaGalleryBuilder()
