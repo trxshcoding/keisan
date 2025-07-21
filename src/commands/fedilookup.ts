@@ -37,6 +37,7 @@ export default class fediLookUpCommand extends Command {
                     noteId: fedistring,
                 })
             }).then(res => res.json())
+            console.log(resp)
             if ("error" in resp) {
                 await interaction.followUp(`nyaaaa 3:\n\`${resp.error.code}\``);
                 return;
@@ -67,7 +68,12 @@ export default class fediLookUpCommand extends Command {
                         new ButtonBuilder()
                             .setStyle(ButtonStyle.Link)
                             .setLabel("view post")
-                            .setURL(resp.uri),
+                            /*
+                            im done with this garbage. `resp.uri` is NOT EVEN THERE when THE FUCKING instance IS THE SAME
+                            as the FUCKIOGN G WERDSKLP;GVFHEWRL'VGFHNCEW'RLFPVBHNGETFVBN
+
+                            */
+                            .setURL(!resp.uri ? `https://${config.sharkeyInstance}/notes/${fedistring}` : resp.uri),
                     ),
             ]
 
@@ -110,6 +116,7 @@ export default class fediLookUpCommand extends Command {
                 host: userhost[1],
             })
         }).then(res => res.json())
+
         if ("error" in resp) {
             await interaction.followUp(`nyaaaa 3:\n\`${resp.error.code}\``);
             return;
@@ -136,7 +143,12 @@ export default class fediLookUpCommand extends Command {
                     new ButtonBuilder()
                         .setStyle(ButtonStyle.Link)
                         .setLabel("go to profile")
-                        .setURL(resp.url),
+                        /*
+                        the fucking `resp.url` is null when the host is the same as the api. who designed this???????
+                        thankfully since we're working with a sharkey api, we're ssure this is how the link is
+                        structured, so we can just make it the fuck up
+                        */
+                        .setURL(resp.url === null ? `https://${config.sharkeyInstance}/@${resp.username}` : resp.url),
                 ),
         ];
         await interaction.followUp({
