@@ -60,7 +60,7 @@ export default class fediLookUpCommand extends Command {
                             ),
                     )
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(resp.text),
+                        new TextDisplayBuilder().setContent(!resp.text ? "" : resp.text),
                     )
                     .setSpoiler(resp.cw !== null),
                 new ActionRowBuilder<MessageActionRowComponentBuilder>()
