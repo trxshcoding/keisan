@@ -32,6 +32,7 @@ export default class PingCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config): Promise<void> {
         await interaction.deferReply()
         const user = interaction.options.getString("user") ?? config.listenbrainzAccount;
+        const lobotomized = interaction.options.getBoolean("lobotomized") ?? false;
         const usesonglink = interaction.options.getBoolean("usesonglink") ?? true
         const useitunes = interaction.options.getBoolean("useitunes") ?? false
         const meow = await fetch(`https://api.listenbrainz.org/1/user/${user}/playing-now`).then((res) => res.json());
@@ -54,6 +55,23 @@ export default class PingCommand extends Command {
             const preferredApi = getSongOnPreferredProvider(songlink, link)
 
             if (preferredApi && usesonglink) {
+                if (lobotomized) {
+                    const components = [
+                        new TextDisplayBuilder().setContent(`### ${preferredApi.title}\n-# by ${preferredApi.artist}`),
+                        new ActionRowBuilder<MessageActionRowComponentBuilder>()
+                            .addComponents(
+                                new ButtonBuilder()
+                                    .setStyle(ButtonStyle.Link)
+                                    .setLabel("song.link")
+                                    .setURL(`https://song.link/${songlink.linksByPlatform[Object.keys(songlink.linksByPlatform)[0]].url}`),
+                            ),
+                    ];
+                    await interaction.followUp({
+                        components: components,
+                        flags: [MessageFlags.IsComponentsV2],
+                    })
+                    return
+                }
                 const components = [
                     new ContainerBuilder()
                         .addSectionComponents(
@@ -113,6 +131,9 @@ export default class PingCommand extends Command {
         .setDescription("balls").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
         ])
+        .addBooleanOption(option => {
+            return option.setName("lobotomized").setDescription("smol").setRequired(false);
+        })
         .addBooleanOption(option => {
             return option.setName("usesonglink").setDescription("use songlink or not").setRequired(false)
         })

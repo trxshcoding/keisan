@@ -18,7 +18,7 @@ export default class RenameshitpostCommand extends Command {
         const newname = interaction.options.getString("newname")!;
 
         fs.renameSync(path.join(DOWNLOAD_FOLDER_PATH, originalname), path.join(DOWNLOAD_FOLDER_PATH, newname));
-        await interaction.followUp("uhhh this shit shouldve worked")
+        await interaction.followUp("shitpost renamed.")
     }
 
     async autoComplete(interaction: AutocompleteInteraction, config: Config, option: AutocompleteFocusedOption): Promise<void> {
