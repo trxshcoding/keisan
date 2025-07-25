@@ -6,7 +6,6 @@ import {
 } from "discord.js";
 import { ContextCommand } from "../command.ts";
 import type {Config} from "../config.ts";
-import {BUCKETNAME} from "./shitpost.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {fileURLToPath} from "url";

@@ -15,18 +15,7 @@ import {getSongOnPreferredProvider, kyzaify} from "../helper.ts"
 import {type Config} from "../config.ts";
 import type {S3Client} from "@aws-sdk/client-s3";
 
-function keepV(url: string): string {
-    const urlObj = new URL(url);
-    const vParam = urlObj.searchParams.get("v");
-
-    urlObj.search = "";
-
-    if (vParam) {
-        urlObj.searchParams.set("v", vParam);
-    }
-
-    return urlObj.toString();
-}
+const generateUid = (n = 6) => Math.floor(Math.random() * 36 ** n).toString(36);
 
 export default class PingCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config): Promise<void> {
@@ -56,8 +45,13 @@ export default class PingCommand extends Command {
 
             if (preferredApi && usesonglink) {
                 if (lobotomized) {
+
+                    const emoji = await interaction.client.application.emojis.create({
+                        attachment: preferredApi.thumbnailUrl,
+                        name: generateUid(),
+                    });
+
                     const components = [
-                        new TextDisplayBuilder().setContent(`### ${preferredApi.title}\n-# by ${preferredApi.artist}`),
                         new ActionRowBuilder<MessageActionRowComponentBuilder>()
                             .addComponents(
                                 new ButtonBuilder()
@@ -67,8 +61,8 @@ export default class PingCommand extends Command {
                             ),
                     ];
                     await interaction.followUp({
+                        content: `### ${preferredApi.title}${emoji}\n-# by ${preferredApi.artist}`,
                         components: components,
-                        flags: [MessageFlags.IsComponentsV2],
                     })
                     return
                 }

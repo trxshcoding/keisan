@@ -14,7 +14,6 @@ import {fileURLToPath} from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const BUCKETNAME = "shitposts" as const;
 export const DOWNLOAD_FOLDER_PATH = path.join(__dirname, '..', '..', 'shitposts');
 export async function getFilesInFolder(folderPath: string): Promise<{ name: string, value: string }[]> {
     try {
