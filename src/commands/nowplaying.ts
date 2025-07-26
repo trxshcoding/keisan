@@ -62,7 +62,7 @@ export default class PingCommand extends Command {
                             ),
                     ];
                     await interaction.followUp({
-                        content: `### ${preferredApi.title}${emoji}\n-# by ${preferredApi.artist}`,
+                        content: `### ${preferredApi.title} ${emoji}\n-# by ${preferredApi.artist}`,
                         components: components,
                     })
                     return
