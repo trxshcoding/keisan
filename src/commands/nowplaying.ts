@@ -165,9 +165,13 @@ export default class PingCommand extends Command {
                 flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral],
             })
         } else {
+            /*
+            this actually should never reach, since lobotomized
+            will only reach if prefferedapi is true at L43,
+            so something just went really wrong
+            */
             await interaction.reply({
-                //TODO: why
-                content: "sorgy, idk whats the music //TODO -- FIX THIS",
+                content: "how",
                 flags: [MessageFlags.Ephemeral]
             })
         }
