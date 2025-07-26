@@ -8,7 +8,7 @@ import {
     EmbedBuilder,
     MessageFlags,
     InteractionContextType, type MessageActionRowComponentBuilder, MessageFlagsBitField,
-    SlashCommandBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder
+    SlashCommandBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, type ButtonInteraction
 } from "discord.js";
 
 import {getSongOnPreferredProvider, kyzaify} from "../helper.ts"
@@ -55,9 +55,10 @@ export default class PingCommand extends Command {
                         new ActionRowBuilder<MessageActionRowComponentBuilder>()
                             .addComponents(
                                 new ButtonBuilder()
-                                    .setStyle(ButtonStyle.Link)
-                                    .setLabel("song.link")
-                                    .setURL(`https://song.link/${songlink.linksByPlatform[Object.keys(songlink.linksByPlatform)[0]].url}`),
+                                    .setStyle(ButtonStyle.Secondary)
+                                    .setLabel("expand")
+                                    //TODO: this is a hack. figure out a better way of doing this
+                                    .setCustomId(link),
                             ),
                     ];
                     await interaction.followUp({
@@ -119,6 +120,59 @@ export default class PingCommand extends Command {
         }
 
     }
+
+    async button(interaction: ButtonInteraction, config: Config): Promise<void> {
+        const link = interaction.customId
+        const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
+        const preferredApi = getSongOnPreferredProvider(songlink, link)
+        if (preferredApi) {
+            const components = [
+                new ContainerBuilder()
+                    .addSectionComponents(
+                        new SectionBuilder()
+                            .setThumbnailAccessory(
+                                new ThumbnailBuilder()
+                                    .setURL(preferredApi.thumbnailUrl)
+                            )
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(`# ${preferredApi.artist} - ${preferredApi.title}`),
+                            ),
+                    )
+            ];
+            const meow = Object.keys(songlink.linksByPlatform)
+
+            const nya: ActionRowBuilder<ButtonBuilder>[] = [];
+            let currentRow = new ActionRowBuilder<ButtonBuilder>();
+
+            for (const meowi of meow) {
+                if (currentRow.components.length >= 4) {
+                    nya.push(currentRow);
+                    currentRow = new ActionRowBuilder<ButtonBuilder>();
+                }
+                currentRow.addComponents(
+                    new ButtonBuilder()
+                        .setURL(songlink.linksByPlatform[meowi].url)
+                        .setLabel(kyzaify(meowi))
+                        .setStyle(ButtonStyle.Link)
+                );
+            }
+            if (currentRow.components.length > 0) {
+                nya.push(currentRow);
+            }
+            components[0].addActionRowComponents(nya)
+            await interaction.reply({
+                components: components,
+                flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral],
+            })
+        } else {
+            await interaction.reply({
+                //TODO: why
+                content: "sorgy, idk whats the music //TODO -- FIX THIS",
+                flags: [MessageFlags.Ephemeral]
+            })
+        }
+    }
+
 
     slashCommand = new SlashCommandBuilder()
         .setName("nowplaying")

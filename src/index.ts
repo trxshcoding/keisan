@@ -115,5 +115,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
         console.error("error during command execution: " + commandName, e)
     }
 })
+client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isButton()) return;
+    if (!interaction.isMessageComponent()) return;
+    //deprecated? skill issue.
+    const { commandName } = interaction.message.interaction!;
+    const command = commandLookup[commandName]
+    if (!command) {
+        console.error("unknown command: " + commandName)
+        return
+    }
+    try {
+        await command.button(interaction, config);
+    } catch (e) {
+        console.error("error during command execution: " + commandName, e)
+    }
 
+
+})
 await client.login(config.token);
