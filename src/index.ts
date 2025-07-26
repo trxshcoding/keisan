@@ -61,6 +61,7 @@ client.once(Events.ClientReady, async () => {
     // @ts-ignore
     console.log(`Successfully reloaded ${data.size} application (/) commands.`);
 })
+//me and my 1000 Events.InteractionCreates
 client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isContextMenuCommand()) return;
     const { commandName } = interaction
@@ -130,7 +131,30 @@ client.on(Events.InteractionCreate, async (interaction) => {
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
     }
+})
 
+client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isModalSubmit()) return;
+    /*
+    i dislike doing this very much. depending on customId
+    for commandName means i cant just have it be whatever i want,
+    it has to contain the commandName, but i dont *think*
+    theres any other way. wanna prove me wrong? open a PR.
+    i want you to fix this. please fix this
 
+    update: sunnie just made it even more amazing
+    */
+    const commandName = interaction.customId.split("|")[0]
+
+    const command = commandLookup[commandName]
+    if (!command) {
+        console.error("unknown command: " + commandName)
+        return
+    }
+    try {
+        await command.modal(interaction, config);
+    } catch (e) {
+        console.error("error during command execution: " + commandName, e)
+    }
 })
 await client.login(config.token);

@@ -11,7 +11,7 @@ import {
     SlashCommandBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, type ButtonInteraction
 } from "discord.js";
 
-import { getSongOnPreferredProvider, kyzaify, nowPlayingView, type Song } from "../helper.ts"
+import { getSongOnPreferredProvider, kyzaify, lobotomizedSongButton, nowPlayingView, type Song } from "../helper.ts"
 import { type Config } from "../config.ts";
 import type { S3Client } from "@aws-sdk/client-s3";
 
@@ -45,7 +45,6 @@ export default class PingCommand extends Command {
 
             if (preferredApi && usesonglink) {
                 if (lobotomized) {
-
                     const emoji = await interaction.client.application.emojis.create({
                         attachment: preferredApi.thumbnailUrl,
                         name: generateUid(),
@@ -57,7 +56,6 @@ export default class PingCommand extends Command {
                                 new ButtonBuilder()
                                     .setStyle(ButtonStyle.Secondary)
                                     .setLabel("expand")
-                                    //TODO: this is a hack. figure out a better way of doing this
                                     .setCustomId(link),
                             ),
                     ];
@@ -88,29 +86,7 @@ export default class PingCommand extends Command {
 
     }
 
-    async button(interaction: ButtonInteraction, config: Config): Promise<void> {
-        const link = interaction.customId
-        const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
-        const preferredApi = getSongOnPreferredProvider(songlink, link)
-        if (preferredApi) {
-            const components = nowPlayingView(songlink, preferredApi)
-            await interaction.reply({
-                components,
-                flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral],
-            })
-        } else {
-            /*
-            this actually should never reach, since lobotomized
-            will only reach if prefferedapi is true at L43,
-            so something just went really wrong
-            */
-            await interaction.reply({
-                content: "how",
-                flags: [MessageFlags.Ephemeral]
-            })
-        }
-    }
-
+    button = lobotomizedSongButton
 
     slashCommand = new SlashCommandBuilder()
         .setName("nowplaying")

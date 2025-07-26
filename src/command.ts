@@ -6,7 +6,7 @@ import {
     ChatInputCommandInteraction,
     ContextMenuCommandBuilder,
     ContextMenuCommandInteraction,
-    Message,
+    Message, type ModalSubmitInteraction,
     SharedSlashCommand,
     User
 } from "discord.js";
@@ -31,6 +31,9 @@ export abstract class Command extends ICommand {
     }
     button(interaction: ButtonInteraction, config: Config): Promise<void> {
         throw new Error("button called on command that does not have #button implemented.");
+    }
+    modal(interaction: ModalSubmitInteraction, config: Config): Promise<void> {
+        throw new Error("modal called on command that does not have #modal implemented.");
     }
     abstract slashCommand: SharedSlashCommand
 }

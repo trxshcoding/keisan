@@ -1,5 +1,17 @@
-import { ContainerBuilder, SectionBuilder, ThumbnailBuilder, TextDisplayBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import {
+    ContainerBuilder,
+    SectionBuilder,
+    ThumbnailBuilder,
+    TextDisplayBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ButtonInteraction,
+    MessageFlags,
+    type SlashCommandBuilder, ModalBuilder
+} from "discord.js";
 import { z } from "zod";
+import type { Config } from "./config";
 
 export interface Song {
     title: string;
@@ -63,7 +75,7 @@ export function getSongOnPreferredProvider(json: unknown, link: string): Song | 
     return null
 }
 
-export function nowPlayingView(songlink: any /* todo: type */, preferredApi: Song) {
+export function nowPlayingView(songlink: z.infer<typeof songLinkShape>, preferredApi: Song) {
     const components = [
         new ContainerBuilder()
             .addSectionComponents(
@@ -99,6 +111,41 @@ export function nowPlayingView(songlink: any /* todo: type */, preferredApi: Son
     }
     components[0].addActionRowComponents(rows)
     return components
+}
+
+export class AmyodalBuilder extends ModalBuilder {
+    private command: SlashCommandBuilder
+    constructor(command: SlashCommandBuilder) {
+        super()
+        this.command = command
+    }
+    setCustomId(customId: string): this {
+        this.data.custom_id = `${this.command.name}|${customId}`
+        return this
+    }
+}
+
+export async function lobotomizedSongButton(interaction: ButtonInteraction, config: Config): Promise<void> {
+    const link = interaction.customId
+    const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
+    const preferredApi = getSongOnPreferredProvider(songlink, link)
+    if (preferredApi) {
+        const components = nowPlayingView(songlink, preferredApi)
+        await interaction.reply({
+            components,
+            flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral],
+        })
+    } else {
+        /*
+        this actually should never reach, since lobotomized
+        will only reach if prefferedapi is true at L43,
+        so something just went really wrong
+        */
+        await interaction.reply({
+            content: "how",
+            flags: [MessageFlags.Ephemeral]
+        })
+    }
 }
 
 
