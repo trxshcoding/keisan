@@ -1,3 +1,4 @@
+import { ContainerBuilder, SectionBuilder, ThumbnailBuilder, TextDisplayBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { z } from "zod";
 
 export interface Song {
@@ -21,7 +22,7 @@ const songLinkShape = z.object({
         })
     ),
     linksByPlatform: z.record(
-        z.string(), 
+        z.string(),
         z.object({
             country: z.string(),
             url: z.string().url(),
@@ -60,6 +61,44 @@ export function getSongOnPreferredProvider(json: unknown, link: string): Song | 
         }
     }
     return null
+}
+
+export function nowPlayingView(songlink: any /* todo: type */, preferredApi: Song) {
+    const components = [
+        new ContainerBuilder()
+            .addSectionComponents(
+                new SectionBuilder()
+                    .setThumbnailAccessory(
+                        new ThumbnailBuilder()
+                            .setURL(preferredApi.thumbnailUrl)
+                    )
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(`# ${preferredApi.artist} - ${preferredApi.title}`),
+                    ),
+            )
+    ];
+    const links = Object.keys(songlink.linksByPlatform)
+
+    const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+    let currentRow = new ActionRowBuilder<ButtonBuilder>();
+
+    for (const link of links) {
+        if (currentRow.components.length >= 4) {
+            rows.push(currentRow);
+            currentRow = new ActionRowBuilder<ButtonBuilder>();
+        }
+        currentRow.addComponents(
+            new ButtonBuilder()
+                .setURL(songlink.linksByPlatform[link].url)
+                .setLabel(kyzaify(link))
+                .setStyle(ButtonStyle.Link)
+        );
+    }
+    if (currentRow.components.length > 0) {
+        rows.push(currentRow);
+    }
+    components[0].addActionRowComponents(rows)
+    return components
 }
 
 

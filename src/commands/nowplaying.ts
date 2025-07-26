@@ -1,4 +1,4 @@
-import {Command} from "../command.ts";
+import { Command } from "../command.ts";
 import {
     ActionRowBuilder,
     ApplicationIntegrationType,
@@ -11,9 +11,9 @@ import {
     SlashCommandBuilder, TextDisplayBuilder, SectionBuilder, ThumbnailBuilder, type ButtonInteraction
 } from "discord.js";
 
-import {getSongOnPreferredProvider, kyzaify} from "../helper.ts"
-import {type Config} from "../config.ts";
-import type {S3Client} from "@aws-sdk/client-s3";
+import { getSongOnPreferredProvider, kyzaify, nowPlayingView, type Song } from "../helper.ts"
+import { type Config } from "../config.ts";
+import type { S3Client } from "@aws-sdk/client-s3";
 
 const generateUid = (n = 6) => Math.floor(Math.random() * 36 ** n).toString(36);
 
@@ -33,7 +33,7 @@ export default class PingCommand extends Command {
             await interaction.followUp(user + " isnt listening to music");
         } else {
             const track_metadata = meow.payload.listens[0].track_metadata
-            const paramsObj = {entity: "song", term: track_metadata.artist_name + " " + track_metadata.track_name};
+            const paramsObj = { entity: "song", term: track_metadata.artist_name + " " + track_metadata.track_name };
             const searchParams = new URLSearchParams(paramsObj);
             const itunesinfo = (await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()).results[0];
             let link = track_metadata.additional_info.origin_url
@@ -67,42 +67,9 @@ export default class PingCommand extends Command {
                     })
                     return
                 }
-                const components = [
-                    new ContainerBuilder()
-                        .addSectionComponents(
-                            new SectionBuilder()
-                                .setThumbnailAccessory(
-                                    new ThumbnailBuilder()
-                                        .setURL(preferredApi.thumbnailUrl)
-                                )
-                                .addTextDisplayComponents(
-                                    new TextDisplayBuilder().setContent(`# ${preferredApi.artist} - ${preferredApi.title}`),
-                                ),
-                        )
-                ];
-                const meow = Object.keys(songlink.linksByPlatform)
-
-                const nya: ActionRowBuilder<ButtonBuilder>[] = [];
-                let currentRow = new ActionRowBuilder<ButtonBuilder>();
-
-                for (const meowi of meow) {
-                    if (currentRow.components.length >= 4) {
-                        nya.push(currentRow);
-                        currentRow = new ActionRowBuilder<ButtonBuilder>();
-                    }
-                    currentRow.addComponents(
-                        new ButtonBuilder()
-                            .setURL(songlink.linksByPlatform[meowi].url)
-                            .setLabel(kyzaify(meowi))
-                            .setStyle(ButtonStyle.Link)
-                    );
-                }
-                if (currentRow.components.length > 0) {
-                    nya.push(currentRow);
-                }
-                components[0].addActionRowComponents(nya)
+                const components = nowPlayingView(songlink, preferredApi)
                 await interaction.followUp({
-                    components: components,
+                    components,
                     flags: [MessageFlags.IsComponentsV2],
                 })
             } else {
@@ -115,7 +82,7 @@ export default class PingCommand extends Command {
                         text: "song.link proxying was turned off or failed - amy jr",
                     });
 
-                await interaction.followUp({embeds:[embedfallback]})
+                await interaction.followUp({ embeds: [embedfallback] })
             }
         }
 
@@ -126,42 +93,9 @@ export default class PingCommand extends Command {
         const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
         const preferredApi = getSongOnPreferredProvider(songlink, link)
         if (preferredApi) {
-            const components = [
-                new ContainerBuilder()
-                    .addSectionComponents(
-                        new SectionBuilder()
-                            .setThumbnailAccessory(
-                                new ThumbnailBuilder()
-                                    .setURL(preferredApi.thumbnailUrl)
-                            )
-                            .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(`# ${preferredApi.artist} - ${preferredApi.title}`),
-                            ),
-                    )
-            ];
-            const meow = Object.keys(songlink.linksByPlatform)
-
-            const nya: ActionRowBuilder<ButtonBuilder>[] = [];
-            let currentRow = new ActionRowBuilder<ButtonBuilder>();
-
-            for (const meowi of meow) {
-                if (currentRow.components.length >= 4) {
-                    nya.push(currentRow);
-                    currentRow = new ActionRowBuilder<ButtonBuilder>();
-                }
-                currentRow.addComponents(
-                    new ButtonBuilder()
-                        .setURL(songlink.linksByPlatform[meowi].url)
-                        .setLabel(kyzaify(meowi))
-                        .setStyle(ButtonStyle.Link)
-                );
-            }
-            if (currentRow.components.length > 0) {
-                nya.push(currentRow);
-            }
-            components[0].addActionRowComponents(nya)
+            const components = nowPlayingView(songlink, preferredApi)
             await interaction.reply({
-                components: components,
+                components,
                 flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral],
             })
         } else {
