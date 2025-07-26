@@ -21,7 +21,7 @@ export default class PingCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config): Promise<void> {
         await interaction.deferReply()
         const user = interaction.options.getString("user") ?? config.listenbrainzAccount;
-        const lobotomized = interaction.options.getBoolean("lobotomized") ?? false;
+        const lobotomized = interaction.options.getBoolean("lobotomized") ?? true;
         const usesonglink = interaction.options.getBoolean("usesonglink") ?? true
         const useitunes = interaction.options.getBoolean("useitunes") ?? false
         const meow = await fetch(`https://api.listenbrainz.org/1/user/${user}/playing-now`).then((res) => res.json());
