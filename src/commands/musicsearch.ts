@@ -29,7 +29,7 @@ export default class PingCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         await interaction.deferReply()
         const search = interaction.options.getString("search")!
-        const lobotomized = interaction.options.getBoolean("lobotomized")
+        const lobotomized = interaction.options.getBoolean("lobotomized") ?? true
         const paramsObj = { entity: "song", term: search };
         const searchParams = new URLSearchParams(paramsObj);
 

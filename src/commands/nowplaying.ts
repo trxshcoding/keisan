@@ -13,9 +13,7 @@ import {
 
 import { getSongOnPreferredProvider, kyzaify, lobotomizedSongButton, nowPlayingView, type Song } from "../helper.ts"
 import { type Config } from "../config.ts";
-import type { S3Client } from "@aws-sdk/client-s3";
-
-const generateUid = (n = 6) => Math.floor(Math.random() * 36 ** n).toString(36);
+import { hash } from "crypto"
 
 export default class PingCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config): Promise<void> {
@@ -47,7 +45,7 @@ export default class PingCommand extends Command {
                 if (lobotomized) {
                     const emoji = await interaction.client.application.emojis.create({
                         attachment: preferredApi.thumbnailUrl,
-                        name: generateUid(),
+                        name: hash("md5", preferredApi.thumbnailUrl),
                     });
 
                     const components = [
@@ -63,6 +61,8 @@ export default class PingCommand extends Command {
                         content: `### ${preferredApi.title} ${emoji}\n-# by ${preferredApi.artist}`,
                         components: components,
                     })
+                    // we dont have infinite emoji slots
+                    await emoji.delete()
                     return
                 }
                 const components = nowPlayingView(songlink, preferredApi)

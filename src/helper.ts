@@ -136,11 +136,6 @@ export async function lobotomizedSongButton(interaction: ButtonInteraction, conf
             flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral],
         })
     } else {
-        /*
-        this actually should never reach, since lobotomized
-        will only reach if prefferedapi is true at L43,
-        so something just went really wrong
-        */
         await interaction.reply({
             content: "how",
             flags: [MessageFlags.Ephemeral]

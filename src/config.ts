@@ -10,7 +10,7 @@ const configT = z.object({
   radioName: z.string()
 });
 type RawConfig = z.infer<typeof configT>;
-export type Config = & { prisma: PrismaClient };
+export type Config = RawConfig & { prisma: PrismaClient };
 // should this be replaced by just a dynamic load of the json file? maybe. this is cool tho.
 rawconfig satisfies RawConfig;
 export const config: Config = {
