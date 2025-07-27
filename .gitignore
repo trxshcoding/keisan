@@ -10,5 +10,7 @@ yarn-error.log*
 /.pnp
 src/**/*.js
 .pnp.js
+src/generated
 /shitposts
 .vscode/*
+amyjr.db*
