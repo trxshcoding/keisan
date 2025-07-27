@@ -1,9 +1,5 @@
 {
-  "name": "keisan",
-  "version": "1.0.0",
-  "description": "",
   "type": "module",
-  "main": "dist/index.js",
   "scripts": {
     "start": "node --no-warnings=ExperimentalWarning --experimental-strip-types src/index.ts",
     "check": "tsc"
@@ -16,7 +12,6 @@
     "canvas": "^3.1.0",
     "discord.js": "^14.19.3",
     "sharp": "git+ssh://git@github.com/lovell/sharp.git",
-    "ts-node": "^10.9.2",
     "zod": "^3.24.2"
   },
   "devDependencies": {
