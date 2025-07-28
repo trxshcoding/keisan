@@ -13,6 +13,12 @@ const configT = z.object({
       lobotomized: z.boolean(),
       useSonglink: z.boolean(),
       useItunes: z.boolean()
+    }),
+    pat: z.object({
+      speed: z.number(),
+    }),
+    lastlistened: z.object({
+      historyAmount: z.number(),
     })
   })
 });

@@ -20,7 +20,7 @@ export default class PingCommand extends Command {
 
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         const user = interaction.options.getUser('user', true)
-        const speed = interaction.options.getInteger('speed') ?? 0
+        const speed = interaction.options.getInteger('speed') ?? config.commandDefaults.pat.speed
         const avatarResponse = await fetch(user.avatarURL({})!)
         const avatarBuf = Buffer.from(await avatarResponse.arrayBuffer())
         const frames: SharpInput[] = []

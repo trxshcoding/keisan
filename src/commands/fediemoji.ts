@@ -38,7 +38,7 @@ export default class FediemojiCommand extends Command {
             const emojiArray = (await this.getSharkeyEmojis()).map((i) => i.name)
             const matches = emojiArray.filter((item: string) => item && item.toLowerCase().includes(search.toLowerCase())).slice(0, 25)
 
-            interaction.respond(matches.map((emoji) => ({
+            await interaction.respond(matches.map((emoji) => ({
                 name: emoji!,
                 value: emoji!
             })))
