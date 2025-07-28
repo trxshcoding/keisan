@@ -1,0 +1,7 @@
+services:
+    amyjr:
+        image: hazy2/amyjr:latest
+        build: .
+        environment:
+            - TOKEN=${TOKEN}
+        restart: unless-stopped
