@@ -8,7 +8,8 @@ import {
     ButtonStyle,
     ButtonInteraction,
     MessageFlags,
-    type SlashCommandBuilder, ModalBuilder
+    type SlashCommandBuilder, ModalBuilder,
+    ApplicationEmoji
 } from "discord.js";
 import { z } from "zod";
 import type { Config } from "./config";
@@ -113,22 +114,22 @@ export function nowPlayingView(songlink: z.infer<typeof songLinkShape>, preferre
     return components
 }
 
-export class AmyodalBuilder extends ModalBuilder {
-    private command: SlashCommandBuilder
-    constructor(command: SlashCommandBuilder) {
-        super()
-        this.command = command
-    }
-    setCustomId(customId: string): this {
-        this.data.custom_id = `${this.command.name}|${customId}`
-        return this
-    }
-}
+export const musicCache: Record<string, {
+    preferredApi: Song,
+    songlink: z.infer<typeof songLinkShape>
+}> = {}
 
 export async function lobotomizedSongButton(interaction: ButtonInteraction, config: Config): Promise<void> {
     const link = interaction.customId
-    const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
-    const preferredApi = getSongOnPreferredProvider(songlink, link)
+    let songlink, preferredApi
+    if (musicCache[link]) {
+        preferredApi = musicCache[link].preferredApi
+        songlink = musicCache[link].songlink
+    } else {
+        songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
+        preferredApi = getSongOnPreferredProvider(songlink, link)
+    }
+
     if (preferredApi) {
         const components = nowPlayingView(songlink, preferredApi)
         await interaction.reply({
@@ -170,11 +171,4 @@ export function kyzaify(input: string): string {
     }
 
     return result;
-}
-
-export function trimWhitespace(input: string): string;
-export function trimWhitespace(input: string[]): string[];
-
-export function trimWhitespace(input: string | string[]) {
-    return Array.isArray(input) ? input.map(s => s.trim()) : input.trim();
 }

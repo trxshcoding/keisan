@@ -10,7 +10,7 @@ import {
     type MessageActionRowComponentBuilder
 } from "discord.js";
 import { type Config } from "../config.ts";
-import { getSongOnPreferredProvider, kyzaify, lobotomizedSongButton, nowPlayingView } from "../helper.ts";
+import { getSongOnPreferredProvider, kyzaify, lobotomizedSongButton, musicCache, nowPlayingView } from "../music.ts";
 import * as z from 'zod';
 
 const itunesResponseShape = z.object({
@@ -39,8 +39,15 @@ export default class PingCommand extends Command {
         const itunesSong = itunesinfo.results[0];
 
         const link = itunesSong.trackViewUrl
-        const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
-        const preferredApi = getSongOnPreferredProvider(songlink, link)!
+        let preferredApi, songlink, isCached = false
+        if (musicCache[link]) {
+            preferredApi = musicCache[link].preferredApi
+            songlink = musicCache[link].songlink
+            isCached = true
+        } else {
+            songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
+            preferredApi = getSongOnPreferredProvider(songlink, link)!
+        }
 
         if (lobotomized) {
             const components = [

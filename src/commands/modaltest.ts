@@ -13,7 +13,7 @@ import {
     TextInputStyle
 } from "discord.js";
 import {type Config} from "../config.ts";
-import {AmyodalBuilder} from "../helper.ts";
+import {AmyodalBuilder} from "../util.ts";
 
 export default class ModalTestCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {

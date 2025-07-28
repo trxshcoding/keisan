@@ -18,7 +18,7 @@ import {
     ThumbnailBuilder
 } from "discord.js";
 import type {Config} from "../config.ts";
-import {trimWhitespace} from "../helper.ts";
+import {trimWhitespace} from "../util.ts";
 
 const fediUserRegex = /@[^.@\s]+@(?:[^.@\s]+\.)+[^.@\s]+/
 

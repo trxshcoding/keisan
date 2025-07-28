@@ -1,3 +1,5 @@
+import { ModalBuilder, SlashCommandBuilder } from "discord.js";
+
 export function chunkArray<T>(
     array: T[],
     chunkSize: number
@@ -9,4 +11,24 @@ export function chunkArray<T>(
             : b.push([element])
     )
     return b
+}
+
+
+export function trimWhitespace(input: string): string;
+export function trimWhitespace(input: string[]): string[];
+
+export function trimWhitespace(input: string | string[]) {
+    return Array.isArray(input) ? input.map(s => s.trim()) : input.trim();
+}
+
+export class AmyodalBuilder extends ModalBuilder {
+    private command: SlashCommandBuilder
+    constructor(command: SlashCommandBuilder) {
+        super()
+        this.command = command
+    }
+    setCustomId(customId: string): this {
+        this.data.custom_id = `${this.command.name}|${customId}`
+        return this
+    }
 }

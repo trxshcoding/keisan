@@ -7,7 +7,7 @@ import {
     SlashCommandBuilder, TextDisplayBuilder, ThumbnailBuilder
 } from "discord.js";
 import { type Config } from "../config.ts";
-import {getSongOnPreferredProvider, kyzaify} from "../helper.ts";
+import {getSongOnPreferredProvider, kyzaify} from "../music.ts";
 
 export default class MusicInfoCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {

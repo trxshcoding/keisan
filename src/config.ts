@@ -7,7 +7,14 @@ const configT = z.object({
   gitapi: z.string(),
   sharkeyInstance: z.string(),
   radioURL: z.string(),
-  radioName: z.string()
+  radioName: z.string(),
+  commandDefaults: z.object({
+    nowplaying: z.object({
+      lobotomized: z.boolean(),
+      useSonglink: z.boolean(),
+      useItunes: z.boolean()
+    })
+  })
 });
 type RawConfig = z.infer<typeof configT>;
 export type Config = RawConfig & { prisma: PrismaClient };
