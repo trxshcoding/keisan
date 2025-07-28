@@ -8,6 +8,7 @@ const configT = z.object({
   sharkeyInstance: z.string(),
   radioURL: z.string(),
   radioName: z.string(),
+  owner: z.string(),
   commandDefaults: z.object({
     nowplaying: z.object({
       lobotomized: z.boolean(),

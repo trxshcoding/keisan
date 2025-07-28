@@ -10,6 +10,7 @@ import { ContextCommand } from "../command.ts";
 import {type ModuleDeclaration,type Statement} from "acorn";
 import {generate} from "astring";
 import {inspect} from "node:util";
+import {config} from "../config.ts";
 
 
 function transformLastInBlock<T extends Statement | ModuleDeclaration>(
@@ -69,6 +70,10 @@ export default class Mock extends ContextCommand<Message> {
             .setName('eval')
             .setType(ApplicationCommandType.Message)
     async run(interaction: ContextMenuCommandInteraction, target: Message): Promise<void> {
+        if (interaction.user.id !== config.owner){
+            await interaction.reply("who tf are you")
+            return;
+        }
         await interaction.deferReply();
         const match = target.content.match(/```js\n(.*?)```/s)
         if (!match) {
