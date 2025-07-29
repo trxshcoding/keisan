@@ -1,16 +1,35 @@
-FROM node:24-slim
+FROM node:24-alpine
+
+RUN apk add --no-cache \
+		python3 \
+		py3-pip \
+		openssl \
+		pkgconf \
+		cairo-dev \
+		pango-dev \
+		jpeg-dev \
+		giflib-dev \
+		librsvg-dev \
+		build-base \
+		gcompat
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
-COPY . /app
+RUN npm install --global pnpm
+
 WORKDIR /app
 
-RUN npm i -g pnpm
+COPY package.json pnpm-lock.yaml* ./
+COPY patches ./patches
+COPY prisma ./prisma
 RUN pnpm i
+RUN pnpm prisma generate
+
+COPY . .
 
 COPY docker-configure.sh /docker-configure.sh
 RUN chmod +x /docker-configure.sh
-ENTRYPOINT ["/docker-configure.sh"]
 
-CMD [ "pnpm", "run", "start" ]
+ENTRYPOINT ["/docker-configure.sh"]
+CMD ["pnpm", "run", "start"]
