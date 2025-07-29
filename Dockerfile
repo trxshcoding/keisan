@@ -10,7 +10,8 @@ RUN apk add --no-cache \
 		jpeg-dev \
 		giflib-dev \
 		librsvg-dev \
-		build-base
+		build-base \
+		gcompat
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
