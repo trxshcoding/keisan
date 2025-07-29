@@ -33,6 +33,11 @@ export default class Mock extends ContextCommand<Message> {
             return;
         }
 
+        if(target.attachments.size === 0){
+            await interaction.editReply({ content: "there is no shit for me to post" });
+            return;
+        }
+
         for (const [_, attachment] of target.attachments) {
             const response = await fetch(attachment.url);
 

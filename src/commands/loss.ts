@@ -1,7 +1,7 @@
 import {Command} from "../command.ts";
 import {
     ActionRowBuilder,
-    ApplicationIntegrationType, ButtonBuilder, ButtonStyle,
+    ApplicationIntegrationType, ButtonBuilder, type ButtonInteraction, ButtonStyle,
     ChatInputCommandInteraction, ContainerBuilder,
     InteractionContextType, type MessageActionRowComponentBuilder, MessageFlags,
     SlashCommandBuilder
@@ -44,7 +44,12 @@ export default class LossCommand extends Command {
             flags: [MessageFlags.IsComponentsV2],
         });
     }
-
+    async button(interaction:ButtonInteraction, config:Config){
+        await interaction.reply({
+            content: "its loss, why are you clicking the buttons",
+            flags: [MessageFlags.Ephemeral]
+        })
+    }
     slashCommand = new SlashCommandBuilder()
         .setName("loss")
         .setDescription("why").setIntegrationTypes([
