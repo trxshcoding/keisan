@@ -71,7 +71,7 @@ export default class PingCommand extends Command {
                             ),
                     ];
                     await interaction.followUp({
-                        content: `### ${preferredApi.title} ${emoji}\n-# by ${preferredApi.artist}`,
+                        content: `### ${preferredApi.title.replace(/([#*_~`|])/g, "\\$1")} ${emoji}\n-# by ${preferredApi.artist}`,
                         components: components,
                     })
                     // we dont have infinite emoji slots
