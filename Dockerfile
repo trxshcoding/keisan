@@ -22,6 +22,7 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml* ./
 COPY patches ./patches
+COPY prisma ./prisma
 RUN pnpm i
 RUN pnpm prisma generate
 
