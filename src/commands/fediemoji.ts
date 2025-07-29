@@ -27,6 +27,7 @@ export default class FediemojiCommand extends Command {
                 name: theEmojiWeWannaUpload.name,
             });
             await interaction.followUp(`${emoji}`)
+            await emoji.delete()
         } else {
             await interaction.followUp(`<${theEmojiInApplicationEmojis.animated ? 'a' : ''}:${theEmojiInApplicationEmojis.name}:${theEmojiInApplicationEmojis.id}>`)
         }
