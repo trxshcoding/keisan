@@ -1,37 +1,54 @@
 import {
     ApplicationCommandType, AttachmentBuilder,
+    ContainerBuilder,
     ContextMenuCommandBuilder,
     ContextMenuCommandInteraction,
-    Message, type User
+    MediaGalleryBuilder,
+    MediaGalleryItemBuilder,
+    Message, MessageFlags, type User
 } from "discord.js";
-import {Buffer} from 'node:buffer';
+import { Buffer } from 'node:buffer';
 import { ContextCommand } from "../command.ts";
-import type {Config} from "../config.ts";
+import type { Config } from "../config.ts";
 
 export default class Mock extends ContextCommand<User> {
     targetType: ApplicationCommandType.User = ApplicationCommandType.User;
     contextDefinition: ContextMenuCommandBuilder =
         new ContextMenuCommandBuilder()
-            .setName('getavatar')
+            .setName('get avatar')
             .setType(ApplicationCommandType.User)
-    async run(interaction:ContextMenuCommandInteraction, target:User, config:Config): Promise<void> {
+    async run(interaction: ContextMenuCommandInteraction, target: User, config: Config): Promise<void> {
         await interaction.deferReply()
+
         const avatar = target.avatarURL({
             size: 4096
         })
-        console.log(avatar)
         if (!avatar) {
-            await interaction.followUp("user doesnt have an avatar")
+            await interaction.followUp("user doesn't have an avatar")
             return
         }
-        const buffer = await fetch(avatar).then((r) => r.arrayBuffer())
+
+        const container =
+            new ContainerBuilder().addMediaGalleryComponents(
+                new MediaGalleryBuilder().addItems(
+                    new MediaGalleryItemBuilder().setURL(avatar),
+                ),
+            )
+
+        await target.fetch(true).then(user => {
+            const banner = user.bannerURL({
+                size: 4096
+            })
+            if (banner) container.addMediaGalleryComponents(
+                new MediaGalleryBuilder().addItems(
+                    new MediaGalleryItemBuilder().setURL(banner),
+                ),
+            )
+        })
+
         await interaction.followUp({
-            files: [
-                new AttachmentBuilder(Buffer.from(buffer))
-                    // i cant be arsed anymore. fuck this shit
-                    // TODO:sunnie will fix this
-                    .setName("meow." + avatar.replaceAll("https://", "").split("/")[3].split(".")[1].replaceAll("?size=4096", ""))
-            ],
+            components: [container],
+            flags: [MessageFlags.IsComponentsV2]
         })
     }
 }
