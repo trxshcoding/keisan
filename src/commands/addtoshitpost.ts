@@ -13,7 +13,8 @@ import {fileURLToPath} from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export default class Mock extends ContextCommand<Message> {
+export default class AddToShitposts extends ContextCommand<Message> {
+    commandName = "addtoshitposts"
     targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
     contextDefinition: ContextMenuCommandBuilder =
         new ContextMenuCommandBuilder()

@@ -63,7 +63,8 @@ function transformStatement<T extends Statement | ModuleDeclaration>(
 }
 
 
-export default class Mock extends ContextCommand<Message> {
+export default class Eval extends ContextCommand<Message> {
+    commandName = "eval"
     targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
     contextDefinition: ContextMenuCommandBuilder =
         new ContextMenuCommandBuilder()

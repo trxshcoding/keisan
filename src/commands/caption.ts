@@ -32,7 +32,7 @@ export default class Caption extends ContextCommand<Message> {
     async run(interaction: ContextMenuCommandInteraction, target: Message): Promise<void> {
         let attachment = target.attachments.first();
         if (!attachment) {
-            await interaction.followUp({
+            await interaction.reply({
                 content: "no attachments found",
                 flags: [MessageFlags.Ephemeral]
             });

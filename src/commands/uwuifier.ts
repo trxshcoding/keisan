@@ -6,6 +6,7 @@ import {
 import { ContextCommand } from "../command.ts";
 
 export default class Uwuifier extends ContextCommand<Message> {
+    commandName = "uwuifier"
     targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
     contextDefinition: ContextMenuCommandBuilder =
         new ContextMenuCommandBuilder()

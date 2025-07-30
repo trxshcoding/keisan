@@ -6,6 +6,7 @@ import {
 import { ContextCommand } from "../command.ts";
 
 export default class Mock extends ContextCommand<Message> {
+    commandName = "Mock"
     targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
     contextDefinition: ContextMenuCommandBuilder =
         new ContextMenuCommandBuilder()

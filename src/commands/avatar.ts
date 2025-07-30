@@ -11,7 +11,8 @@ import { Buffer } from 'node:buffer';
 import { ContextCommand } from "../command.ts";
 import type { Config } from "../config.ts";
 
-export default class Mock extends ContextCommand<User> {
+export default class GetAvatar extends ContextCommand<User> {
+    commandName = "getavatar";
     targetType: ApplicationCommandType.User = ApplicationCommandType.User;
     contextDefinition: ContextMenuCommandBuilder =
         new ContextMenuCommandBuilder()
