@@ -11,6 +11,7 @@ import { Command, ContextCommand, ICommand } from "./command.ts";
 import { fileURLToPath } from "url";
 import {type Config, config} from "./config.ts";
 import {ListObjectsV2Command, S3Client} from "@aws-sdk/client-s3";
+import {registerFont} from "canvas";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,6 +82,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 });
 client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isModalSubmit()) return;
+    if (!interaction.customId.startsWith("CC:")) return
+    const commandName = interaction.customId.split("|")[0]
+    const command = contextCommandLUT[commandName.replaceAll("CC:", "")]
+    if (!command) {
+        console.error("unknown command: " + commandName)
+        return
+    }
+    try {
+        await command.modal(interaction, config);
+    } catch (e) {
+        console.error("error during command execution: " + commandName, e)
+        interaction.reply("something sharted itself")
+    }
+})
+client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
     const { commandName } = interaction;
@@ -144,6 +161,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     update: sunnie just made it even more amazing
     */
+    if (interaction.customId.startsWith("CC:")) return
     const commandName = interaction.customId.split("|")[0]
 
     const command = commandLookup[commandName]

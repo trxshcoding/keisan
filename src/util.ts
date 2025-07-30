@@ -32,3 +32,15 @@ export class AmyodalBuilder extends ModalBuilder {
         return this
     }
 }
+
+export class ContextyalBuilder extends ModalBuilder {
+    private command: string
+    constructor(command: string) {
+        super()
+        this.command = command
+    }
+    setCustomId(customId: string): this {
+        this.data.custom_id = `CC:${this.command}|${customId}`
+        return this
+    }
+}

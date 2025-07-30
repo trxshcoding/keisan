@@ -22,6 +22,10 @@ export abstract class ContextCommand<T extends User | Message> extends ICommand 
         never;
     abstract contextDefinition: ContextMenuCommandBuilder
     abstract run(interaction: ContextMenuCommandInteraction, target: T extends User ? User : T extends Message ? Message : never, config: Config): Promise<void>
+    abstract commandName: string;
+    modal(interaction: ModalSubmitInteraction, config: Config): Promise<void> {
+        throw new Error("modal called on command that does not have #modal implemented.");
+    }
 }
 
 export abstract class Command extends ICommand {
