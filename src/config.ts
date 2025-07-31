@@ -4,6 +4,7 @@ import { PrismaClient } from "./generated/prisma/index.js";
 const configT = z.object({
   token: z.string(),
   listenbrainzAccount: z.string(),
+  lastFMApiKey: z.string(),
   gitapi: z.string(),
   sharkeyInstance: z.string(),
   radioURL: z.string(),
@@ -13,7 +14,8 @@ const configT = z.object({
     nowplaying: z.object({
       lobotomized: z.boolean(),
       useSonglink: z.boolean(),
-      useItunes: z.boolean()
+      useItunes: z.boolean(),
+      useLastFM: z.boolean()
     }),
     pat: z.object({
       speed: z.number(),
