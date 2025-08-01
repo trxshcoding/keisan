@@ -15,7 +15,7 @@ import { getSongOnPreferredProvider, lobotomizedSongButton, musicCache, nowPlayi
 import { type Config } from "../config.ts";
 import { hash } from "crypto"
 
-async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<{
+async function getNowPlaying(username: string, lastFMApiKey?: string, lastFMFetchLink?: boolean): Promise<{
     songName: string, artistName: string, link: string
 } | false | undefined> {
     if (!lastFMApiKey) {
@@ -40,8 +40,12 @@ async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<{
             // yes its a string, horror
             if (track["@attr"]?.nowplaying !== "true") return false
             // it also doesnt provide a streaming platform url, im sorry i have to do this
-            const page = await (await fetch(track.url)).text()
-            const [, link] = page.match(/class="header-new-playlink"\s+href="(.+?)"/m) || []
+            let link = ""
+            if (lastFMFetchLink) {
+                const page = await (await fetch(track.url)).text()
+                const match = page.match(/class="header-new-playlink"\s+href="(.+?)"/m)
+                if (match) link = match[1]
+            }
             return {
                 songName: track.name,
                 artistName: track.artist["#text"],
@@ -60,7 +64,7 @@ export default class PingCommand extends Command {
         let useSonglink = interaction.options.getBoolean("usesonglink") ?? config.commandDefaults.nowplaying.useSonglink
         const useiTunes = interaction.options.getBoolean("useitunes") ?? config.commandDefaults.nowplaying.useItunes
 
-        const nowPlaying = await getNowPlaying(user, useLastFM ? config.lastFMApiKey : undefined)
+        const nowPlaying = await getNowPlaying(user, useLastFM ? config.lastFMApiKey : undefined, !useiTunes)
         if (typeof nowPlaying === "undefined") {
             await interaction.followUp("something shat itself!");
             return;
