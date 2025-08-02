@@ -46,7 +46,7 @@ export default class LastListenedCommand extends Command {
             content: `The last ${historyAmount} songs of ${user} were:\n\n${songs}`
         });
     }
-
+    dependsOn = ["listenbrainzAccount"]
     slashCommand = new SlashCommandBuilder()
         .setName("lastlistened")
         .setDescription("get that last listened music of a person").setIntegrationTypes([

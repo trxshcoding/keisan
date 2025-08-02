@@ -16,7 +16,7 @@ import { readdir, readFile } from "fs/promises";
 
 const patpatGifPath = path.join('src/commands/', 'patpatframes')
 
-export default class PingCommand extends Command {
+export default class PatCommand extends Command {
 
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         const user = interaction.options.getUser('user', true)
@@ -58,6 +58,8 @@ export default class PingCommand extends Command {
         });
     }
 
+
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("pat")
         .setDescription("Pats someone!").setIntegrationTypes([

@@ -48,7 +48,7 @@ export default class RadioCommand extends Command {
             flags: [MessageFlags.IsComponentsV2],
         })
     }
-
+    dependsOn = ["radioURL", "radioName"]
     slashCommand = new SlashCommandBuilder()
         .setName("radio")
         .setDescription("see whats playing on the radio").setIntegrationTypes([

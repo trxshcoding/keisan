@@ -50,6 +50,7 @@ export default class LossCommand extends Command {
             flags: [MessageFlags.Ephemeral]
         })
     }
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("loss")
         .setDescription("why").setIntegrationTypes([

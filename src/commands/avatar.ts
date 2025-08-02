@@ -13,6 +13,7 @@ import type { Config } from "../config.ts";
 
 export default class GetAvatar extends ContextCommand<User> {
     commandName = "getavatar";
+    dependsOn = []
     targetType: ApplicationCommandType.User = ApplicationCommandType.User;
     contextDefinition: ContextMenuCommandBuilder =
         new ContextMenuCommandBuilder()

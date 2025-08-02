@@ -33,6 +33,7 @@ export default class RenameshitpostCommand extends Command {
             );
         }
     }
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("renameshitpost")
         .setDescription("rename the shitpost").setIntegrationTypes([

@@ -99,5 +99,6 @@ export default class Caption extends ContextCommand<Message> {
             ],
         })
     }
+    dependsOn = []
     commandName = "caption";
 }

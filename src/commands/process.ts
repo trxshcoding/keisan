@@ -39,7 +39,7 @@ memory: ${Math.floor(memoryUsage / 1024 / 1024)} mb
 node: \`${process.versions.node}\`, discord.js: \`${packageJson.dependencies["discord.js"].replace(/[^\d\.]/g, "")}\``,
         });
     }
-
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("process")
         .setDescription("info for NERDS").setIntegrationTypes([

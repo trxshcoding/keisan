@@ -15,6 +15,7 @@ const __dirname = path.dirname(__filename);
 
 export default class AddToShitposts extends ContextCommand<Message> {
     commandName = "addtoshitposts"
+    dependsOn = []
     targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
     contextDefinition: ContextMenuCommandBuilder =
         new ContextMenuCommandBuilder()

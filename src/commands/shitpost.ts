@@ -79,7 +79,7 @@ export default class ShitPostCommand extends Command {
             filteredFiles.slice(0, 25)
         );
     }
-
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("shitpost")
         .setDescription("shitpost with the posix file system!!!!!!").setIntegrationTypes([

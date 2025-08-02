@@ -13,7 +13,7 @@ export default class PingCommand extends Command {
             content: 'Pong!',
         });
     }
-
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("ping")
         .setDescription("Pong!").setIntegrationTypes([

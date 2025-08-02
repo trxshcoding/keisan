@@ -158,7 +158,7 @@ export default class fediLookUpCommand extends Command {
             flags: [MessageFlags.IsComponentsV2],
         });
     }
-
+    dependsOn = ["sharkeyInstance"]
     slashCommand = new SlashCommandBuilder()
         .setName("fedilookup")
         .setDescription("look up shit from fedi").setIntegrationTypes([

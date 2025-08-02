@@ -11,7 +11,7 @@ import { type Config } from "../config.ts";
 export default class PingCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         const repo = interaction.options.getString("repo")
-        const meow = await fetch(config.gitapi + repo).then(res => res.json());
+        const meow = await fetch(config.gitapi! + repo).then(res => res.json());
         const embed = new EmbedBuilder()
             .setAuthor({
                 name: meow.name,
@@ -26,7 +26,7 @@ export default class PingCommand extends Command {
             embeds: [embed],
         });
     }
-
+    dependsOn = ["gitapi"]
     slashCommand = new SlashCommandBuilder()
         .setName("src")
         .setDescription("get src of shit").setIntegrationTypes([

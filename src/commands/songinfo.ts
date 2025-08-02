@@ -56,7 +56,7 @@ export default class MusicInfoCommand extends Command {
         });
 
     }
-
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("musicinfo")
         .addStringOption(option =>{

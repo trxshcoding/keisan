@@ -65,6 +65,7 @@ function transformStatement<T extends Statement | ModuleDeclaration>(
 
 export default class Eval extends ContextCommand<Message> {
     commandName = "eval"
+    dependsOn = []
     targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
     contextDefinition: ContextMenuCommandBuilder =
         new ContextMenuCommandBuilder()

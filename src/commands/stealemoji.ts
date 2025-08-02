@@ -19,7 +19,7 @@ export default class StealEmojiCommand extends Command {
         }).then(emoji => interaction.followUp(`Created new emoji with name ${emoji.name}`))
             .catch(console.error);
     }
-
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("stealemoji")
         .setDescription("steal the emojer")

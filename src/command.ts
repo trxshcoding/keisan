@@ -13,7 +13,9 @@ import {
 import { type Config } from "./config.ts";
 import type {S3Client} from "@aws-sdk/client-s3";
 
-export abstract class ICommand { }
+export abstract class ICommand {
+    abstract dependsOn: string[]
+}
 
 export abstract class ContextCommand<T extends User | Message> extends ICommand {
     abstract targetType:

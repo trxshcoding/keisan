@@ -58,7 +58,7 @@ async function getNowPlaying(username: string, lastFMApiKey?: string, lastFMFetc
 export default class PingCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config): Promise<void> {
         await interaction.deferReply()
-        const user = interaction.options.getString("user") ?? config.listenbrainzAccount;
+        const user = interaction.options.getString("user") ?? config.listenbrainzAccount!;
         const lobotomized = interaction.options.getBoolean("lobotomized") ?? config.commandDefaults.nowplaying.lobotomized;
         const useLastFM = interaction.options.getBoolean("uselastfm") ?? config.commandDefaults.nowplaying.useLastFM
         let useSonglink = interaction.options.getBoolean("usesonglink") ?? config.commandDefaults.nowplaying.useSonglink
@@ -146,7 +146,7 @@ export default class PingCommand extends Command {
     }
 
     button = lobotomizedSongButton
-
+    dependsOn = ['listenbrainzAccount', 'lastFMApiKey']
     slashCommand = new SlashCommandBuilder()
         .setName("nowplaying")
         .setDescription("balls").setIntegrationTypes([

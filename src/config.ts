@@ -1,27 +1,46 @@
 import rawconfig from "../config.json" with {type: "json"};
 import { z } from 'zod';
 import { PrismaClient } from "./generated/prisma/index.js";
+
+const configFallback = {
+  commandDefaults: {
+    nowplaying: {
+      lobotomized: false,
+      useSonglink: false,
+      useItunes: false,
+      useLastFM: false,
+    },
+    pat: {
+      speed: 0,
+    },
+    lastlistened: {
+      historyAmount: 0,
+    },
+  },
+};
+
+
 const configT = z.object({
   token: z.string(),
-  listenbrainzAccount: z.string(),
-  lastFMApiKey: z.string(),
-  gitapi: z.string(),
-  sharkeyInstance: z.string(),
-  radioURL: z.string(),
-  radioName: z.string(),
+  listenbrainzAccount: z.string().optional(),
+  lastFMApiKey: z.string().optional(),
+  gitapi: z.string().optional(),
+  sharkeyInstance: z.string().optional(),
+  radioURL: z.string().optional(),
+  radioName: z.string().optional(),
   owner: z.string(),
   commandDefaults: z.object({
     nowplaying: z.object({
-      lobotomized: z.boolean(),
-      useSonglink: z.boolean(),
-      useItunes: z.boolean(),
-      useLastFM: z.boolean()
+      lobotomized: z.boolean().default(configFallback.commandDefaults.nowplaying.lobotomized),
+      useSonglink: z.boolean().default(configFallback.commandDefaults.nowplaying.useSonglink),
+      useItunes: z.boolean().default(configFallback.commandDefaults.nowplaying.useItunes),
+      useLastFM: z.boolean().default(configFallback.commandDefaults.nowplaying.useLastFM)
     }),
     pat: z.object({
-      speed: z.number(),
+      speed: z.number().default(configFallback.commandDefaults.pat.speed),
     }),
     lastlistened: z.object({
-      historyAmount: z.number(),
+      historyAmount: z.number().default(configFallback.commandDefaults.lastlistened.historyAmount),
     })
   })
 });

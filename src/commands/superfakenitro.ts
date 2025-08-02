@@ -33,7 +33,7 @@ export default class SuperFakeNitroCommand extends Command {
             }))])
         }
     }
-
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("superfakenitro")
         .setDescription("yeahh").setIntegrationTypes([

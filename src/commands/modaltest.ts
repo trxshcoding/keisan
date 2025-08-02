@@ -53,7 +53,7 @@ export default class ModalTestCommand extends Command {
             content: `${interaction.user.username}'s paw size is ${interaction.fields.fields.get("pawSize")!.value ?? "nothing"}`,
         })
     }
-
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("modaltest")
         .setDescription("test yo modal").setIntegrationTypes([

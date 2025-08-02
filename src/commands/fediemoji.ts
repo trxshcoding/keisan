@@ -45,6 +45,7 @@ export default class FediemojiCommand extends Command {
             })))
         }
     }
+    dependsOn = ["sharkeyInstance"]
     slashCommand = new SlashCommandBuilder()
         .setName("fediemoji")
         .setDescription("Pong!").setIntegrationTypes([

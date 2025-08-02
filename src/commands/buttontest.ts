@@ -28,7 +28,7 @@ export default class ButtonTestCommand extends Command {
             flags: [MessageFlags.Ephemeral]
         })
     }
-
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("buttontest")
         .setDescription("test the button").setIntegrationTypes([

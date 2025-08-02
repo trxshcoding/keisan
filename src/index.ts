@@ -24,7 +24,7 @@ const allCommands: ICommand[] = []
 
 
 const commandDir = path.join(__dirname, "commands");
-for (const file of fs.readdirSync(commandDir)) {
+balls: for (const file of fs.readdirSync(commandDir)) {
     if (!file.endsWith('.ts')) continue
     let command = await import(path.join(commandDir, file));
     let instance
@@ -35,6 +35,12 @@ for (const file of fs.readdirSync(commandDir)) {
     }
     if (!(instance instanceof ICommand))
         throw `${instance} is not an ICommand instance (imported from ${file})`;
+    for (const depending of instance.dependsOn) {
+        if (!Object.hasOwn(config, depending)){
+            console.warn(`${file} was not loaded because it depends on ${depending}`);
+            continue balls;
+        }
+    }
     allCommands.push(instance)
 }
 const commands = allCommands.filter(it => it instanceof Command);

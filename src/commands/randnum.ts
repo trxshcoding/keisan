@@ -23,7 +23,7 @@ export default class PingCommand extends Command {
         });
 
     }
-
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("randnum")
         .setDescription("random number").setIntegrationTypes([

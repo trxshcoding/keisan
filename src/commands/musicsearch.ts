@@ -74,7 +74,7 @@ export default class PingCommand extends Command {
     }
 
     button = lobotomizedSongButton
-
+    dependsOn = []
     slashCommand = new SlashCommandBuilder()
         .setName("musicsearch")
         .setDescription("search yo music")
