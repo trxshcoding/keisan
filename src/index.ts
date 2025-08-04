@@ -84,7 +84,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await command.run(interaction, interaction.isUserContextMenuCommand() ? interaction.targetUser : interaction.targetMessage, config)
     } catch (e) {
         console.error("error during context command execution: " + commandName, e)
-        interaction.reply("something sharted itself")
+        interaction.deferred || interaction.replied ?
+            interaction.followUp("something sharted itself")
+            :
+            interaction.reply("something sharted itself")
     }
 });
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -100,7 +103,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await command.modal(interaction, config);
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
-        interaction.reply("something sharted itself")
+        interaction.deferred || interaction.replied ?
+            interaction.followUp("something sharted itself")
+            :
+            interaction.reply("something sharted itself")
     }
 })
 client.on(Events.InteractionCreate, async (interaction) => {
