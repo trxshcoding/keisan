@@ -12,17 +12,18 @@ import {
     TextInputStyle
 } from "discord.js";
 import { ContextCommand } from "../command.ts";
-import {AmyodalBuilder, ContextyalBuilder} from "../util.ts";
-import type {Config} from "../config.ts";
+import { AmyodalBuilder, ContextyalBuilder } from "../util.ts";
+import type { Config } from "../config.ts";
 
 const imagecache: Record<string, string> = {};
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 import { hash } from "crypto"
-import {createCanvas, loadImage, registerFont} from "canvas";
+import { createCanvas, loadImage, registerFont } from "canvas";
 import path from "node:path";
-import {fileURLToPath} from "url";
+import { fileURLToPath } from "url";
+
 export default class Caption extends ContextCommand<Message> {
     targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
     contextDefinition: ContextMenuCommandBuilder =
@@ -67,28 +68,30 @@ export default class Caption extends ContextCommand<Message> {
         const image = await loadImage(imageUrl);
 
         const width = image.width;
-        const height = image.height;
+        const height = Math.max(image.height * 1.2, image.width / 2)
+        const heightDiff = height - image.height
 
         const canvas = createCanvas(width, height);
         const ctx = canvas.getContext('2d');
 
-        ctx.drawImage(image, 0, 0);
+        ctx.fillStyle = "white"
+        ctx.fillRect(0, 0, width, height)
+        ctx.drawImage(image, 0, heightDiff);
 
-
-        let fontSize = 300;
+        ctx.fillStyle = "black"
+        let fontSize = width / 6;
         ctx.font = `${fontSize}px impact`;
+        ctx.textAlign = "center"
         let metrics = ctx.measureText(memetext);
 
-        while (metrics.width > width && fontSize > 1) {
+        while ((metrics.width > width * 0.8 || metrics.actualBoundingBoxAscent > height * 0.2) && fontSize > 1) {
             fontSize--;
             ctx.font = `${fontSize}px impact`;
             metrics = ctx.measureText(memetext);
         }
-        const xPos = (width - metrics.width) / 2;
 
-        const yPos = metrics.actualBoundingBoxDescent + metrics.actualBoundingBoxAscent;
-
-        ctx.fillText(memetext, xPos, yPos);
+        const yPos = heightDiff / 2 + metrics.actualBoundingBoxAscent / 2;
+        ctx.fillText(memetext, width / 2, yPos);
 
         const buffer = canvas.toBuffer('image/png');
         await interaction.followUp({
