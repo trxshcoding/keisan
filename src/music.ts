@@ -116,11 +116,19 @@ export function nowPlayingView(songlink: z.infer<typeof songLinkShape>, preferre
 
 export const musicCache: Record<string, {
     preferredApi: Song,
-    songlink: z.infer<typeof songLinkShape>
+    songlink: z.infer<typeof songLinkShape>,
+    hash?: string
 }> = {}
 
 export async function lobotomizedSongButton(interaction: ButtonInteraction, config: Config): Promise<void> {
-    const link = interaction.customId
+    let link = interaction.customId
+    if (!link.startsWith("http"))
+        link = Object.entries(musicCache).find(([, v]) => v.hash === link)?.[0] || ""
+    if (!link) {
+        interaction.reply("something sharted itself")
+        return
+    }
+
     let songlink, preferredApi
     if (musicCache[link]) {
         preferredApi = musicCache[link].preferredApi

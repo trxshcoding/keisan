@@ -4,14 +4,16 @@ import {
     Events,
     InteractionContextType,
     REST,
+    type AutocompleteInteraction,
+    type Interaction,
 } from "discord.js";
 import path from "node:path";
 import fs from "node:fs";
 import { Command, ContextCommand, ICommand } from "./command.ts";
 import { fileURLToPath } from "url";
-import {type Config, config} from "./config.ts";
-import {ListObjectsV2Command, S3Client} from "@aws-sdk/client-s3";
-import {registerFont} from "canvas";
+import { type Config, config } from "./config.ts";
+import { ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
+import { registerFont } from "canvas";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,7 +38,7 @@ balls: for (const file of fs.readdirSync(commandDir)) {
     if (!(instance instanceof ICommand))
         throw `${instance} is not an ICommand instance (imported from ${file})`;
     for (const depending of instance.dependsOn) {
-        if (!Object.hasOwn(config, depending)){
+        if (!Object.hasOwn(config, depending)) {
             console.warn(`${file} was not loaded because it depends on ${depending}`);
             continue balls;
         }
@@ -54,6 +56,12 @@ function makeDefaultAvailableEverywhere<T extends { setContexts(...contexts: Arr
     if (!t.contexts)
         t.setContexts(InteractionContextType.BotDM, InteractionContextType.Guild, InteractionContextType.PrivateChannel)
     return t
+}
+
+function replyWithError(interaction: Exclude<Interaction, AutocompleteInteraction>) {
+    interaction.deferred || interaction.replied
+        ? interaction.followUp("something sharted itself")
+        : interaction.reply("something sharted itself")
 }
 
 client.once(Events.ClientReady, async () => {
@@ -84,10 +92,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await command.run(interaction, interaction.isUserContextMenuCommand() ? interaction.targetUser : interaction.targetMessage, config)
     } catch (e) {
         console.error("error during context command execution: " + commandName, e)
-        interaction.deferred || interaction.replied ?
-            interaction.followUp("something sharted itself")
-            :
-            interaction.reply("something sharted itself")
+        replyWithError(interaction)
     }
 });
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -103,10 +108,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await command.modal(interaction, config);
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
-        interaction.deferred || interaction.replied ?
-            interaction.followUp("something sharted itself")
-            :
-            interaction.reply("something sharted itself")
+        replyWithError(interaction)
     }
 })
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -124,7 +126,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await command.run(interaction, config);
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
-        interaction.reply("something sharted itself")
+        replyWithError(interaction)
     }
 
 })
@@ -159,6 +161,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await command.button(interaction, config);
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
+        replyWithError(interaction)
     }
 })
 

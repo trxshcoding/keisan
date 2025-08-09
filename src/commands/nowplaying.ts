@@ -39,17 +39,10 @@ async function getNowPlaying(username: string, lastFMApiKey?: string, lastFMFetc
             const track = res.recenttracks.track[0]
             // yes its a string, horror
             if (track["@attr"]?.nowplaying !== "true") return false
-            // it also doesnt provide a streaming platform url, im sorry i have to do this
-            let link = ""
-            if (lastFMFetchLink) {
-                const page = await (await fetch(track.url)).text()
-                const match = page.match(/class="header-new-playlink"\s+href="(.+?)"/m)
-                if (match) link = match[1]
-            }
             return {
                 songName: track.name,
                 artistName: track.artist["#text"],
-                link
+                link: ""
             }
         }
     }
@@ -75,7 +68,7 @@ export default class PingCommand extends Command {
             const paramsObj = { entity: "song", term: `${nowPlaying.artistName} ${nowPlaying.songName}` };
             const searchParams = new URLSearchParams(paramsObj);
             let { link } = nowPlaying
-            if (useiTunes) {
+            if (!link || useiTunes) {
                 const itunesinfo = (await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()).results[0];
                 link = itunesinfo?.trackViewUrl
                 if (!link) {
@@ -100,6 +93,8 @@ export default class PingCommand extends Command {
                     preferredApi,
                     songlink
                 }
+                if (link.length > 100)
+                    musicCache[link].hash = hash("md5", link)
 
                 if (lobotomized) {
                     const emoji = await interaction.client.application.emojis.create({
@@ -113,7 +108,7 @@ export default class PingCommand extends Command {
                                 new ButtonBuilder()
                                     .setStyle(ButtonStyle.Secondary)
                                     .setLabel("expand")
-                                    .setCustomId(link),
+                                    .setCustomId(musicCache[link].hash || link),
                             ),
                     ];
                     await interaction.followUp({
