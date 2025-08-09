@@ -1,15 +1,15 @@
-import {Command} from "../command.ts";
 import {
     ActionRowBuilder,
-    ApplicationIntegrationType, ButtonBuilder, type ButtonInteraction, ButtonStyle,
-    ChatInputCommandInteraction, ContainerBuilder,
+    ApplicationIntegrationType, ButtonBuilder, ButtonStyle, ContainerBuilder,
     InteractionContextType, type MessageActionRowComponentBuilder, MessageFlags,
     SlashCommandBuilder
 } from "discord.js";
-import { type Config } from "../config.ts";
+import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
+import { declareCommand } from "../command.ts";
 
-export default class LossCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+export default declareCommand({
+    dependsOn: NO_EXTRA_CONFIG,
+    async run(interaction, config) {
         const components = [
             new ContainerBuilder()
                 .addActionRowComponents(
@@ -43,15 +43,14 @@ export default class LossCommand extends Command {
             components: components,
             flags: [MessageFlags.IsComponentsV2],
         });
-    }
-    async button(interaction:ButtonInteraction, config:Config){
+    },
+    async button(interaction, config) {
         await interaction.reply({
             content: "its loss, why are you clicking the buttons",
             flags: [MessageFlags.Ephemeral]
         })
-    }
-    dependsOn = []
-    slashCommand = new SlashCommandBuilder()
+    },
+    slashCommand: new SlashCommandBuilder()
         .setName("loss")
         .setDescription("why").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
@@ -60,5 +59,5 @@ export default class LossCommand extends Command {
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ])
+})

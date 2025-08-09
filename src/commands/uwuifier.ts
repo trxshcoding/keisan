@@ -2,17 +2,18 @@ import {
     ApplicationCommandType,
     ContextMenuCommandBuilder,
     ContextMenuCommandInteraction,
-    Message} from "discord.js";
-import { ContextCommand } from "../command.ts";
+    Message
+} from "discord.js";
+import { declareCommand } from "../command";
+import { NO_EXTRA_CONFIG } from "../config";
 
-export default class Uwuifier extends ContextCommand<Message> {
-    dependsOn = []
-    commandName = "uwuifier"
-    targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
-    contextDefinition: ContextMenuCommandBuilder =
-        new ContextMenuCommandBuilder()
-            .setName('uwuify')
-            .setType(ApplicationCommandType.Message)
+export default declareCommand({
+    dependsOn: NO_EXTRA_CONFIG,
+    commandName: "uwuifier",
+    targetType: ApplicationCommandType.Message,
+    contextDefinition: new ContextMenuCommandBuilder()
+        .setName('uwuify')
+        .setType(ApplicationCommandType.Message),
     async run(interaction: ContextMenuCommandInteraction, target: Message): Promise<void> {
 
         const endings = [
@@ -62,7 +63,7 @@ export default class Uwuifier extends ContextCommand<Message> {
         ];
         await interaction.deferReply();
         let message = target.content;
-        function getRandomElement<T>(arr:T[]):T {
+        function getRandomElement<T>(arr: T[]): T {
             const randomIndex = Math.floor(Math.random() * arr.length);
             return arr[randomIndex];
         }
@@ -84,4 +85,4 @@ export default class Uwuifier extends ContextCommand<Message> {
         interaction.followUp(uwuify(message));
 
     }
-}
+})

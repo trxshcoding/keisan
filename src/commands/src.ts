@@ -1,4 +1,3 @@
-import {Command} from "../command.ts";
 import {
     ActionRowBuilder,
     ApplicationIntegrationType, ButtonBuilder, ButtonStyle,
@@ -6,10 +5,11 @@ import {
     InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
-import { type Config } from "../config.ts";
+import { declareCommand } from "../command";
+import { z } from "zod";
 
-export default class PingCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+export default declareCommand({
+    async run(interaction, config) {
         const repo = interaction.options.getString("repo")
         const meow = await fetch(config.gitapi! + repo).then(res => res.json());
         const embed = new EmbedBuilder()
@@ -25,9 +25,11 @@ export default class PingCommand extends Command {
             ],
             embeds: [embed],
         });
-    }
-    dependsOn = ["gitapi"]
-    slashCommand = new SlashCommandBuilder()
+    },
+    dependsOn: z.object({
+        gitapi: z.string(),
+    }),
+    slashCommand: new SlashCommandBuilder()
         .setName("src")
         .setDescription("get src of shit").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
@@ -38,5 +40,5 @@ export default class PingCommand extends Command {
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ])
+})

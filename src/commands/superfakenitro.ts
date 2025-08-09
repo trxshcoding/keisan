@@ -1,16 +1,13 @@
-import { Command } from "../command.ts";
 import {
     ApplicationIntegrationType,
-    type AutocompleteFocusedOption,
-    AutocompleteInteraction,
-    ChatInputCommandInteraction,
-    InteractionContextType, 
+    InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
-import type { Config } from "../config.ts";
+import { NO_EXTRA_CONFIG } from "../config.ts";
+import { declareCommand } from "../command.ts";
 
-export default class SuperFakeNitroCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+export default declareCommand({
+    async run(interaction, config) {
         const emojiname = interaction.options.getString("emoji")!;
         const shit = await (interaction.client.application.emojis.fetch());
 
@@ -20,9 +17,8 @@ export default class SuperFakeNitroCommand extends Command {
             return;
         }
         await interaction.reply(`${theemoji}`);
-    }
-
-    async autoComplete(interaction: AutocompleteInteraction, config: Config, option: AutocompleteFocusedOption): Promise<void> {
+    },
+    async autoComplete(interaction, config, option): Promise<void> {
         if (option.name === 'emoji') {
             const search = option.value
             const data = await (interaction.client.application.emojis.fetch());
@@ -32,9 +28,9 @@ export default class SuperFakeNitroCommand extends Command {
                 value: emoji
             }))])
         }
-    }
-    dependsOn = []
-    slashCommand = new SlashCommandBuilder()
+    },
+    dependsOn: NO_EXTRA_CONFIG,
+    slashCommand: new SlashCommandBuilder()
         .setName("superfakenitro")
         .setDescription("yeahh").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
@@ -47,5 +43,5 @@ export default class SuperFakeNitroCommand extends Command {
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ]),
+})

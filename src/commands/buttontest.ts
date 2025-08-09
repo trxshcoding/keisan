@@ -1,15 +1,14 @@
-import {Command} from "../command.ts";
+import { declareCommand } from "../command.ts";
 import {
     ActionRowBuilder,
-    ApplicationIntegrationType, ButtonBuilder, type ButtonInteraction, ButtonStyle,
-    ChatInputCommandInteraction, ContextMenuCommandInteraction,
+    ApplicationIntegrationType, ButtonBuilder, ButtonStyle,
     InteractionContextType, type MessageActionRowComponentBuilder, MessageFlags,
     SlashCommandBuilder
 } from "discord.js";
-import type {Config} from "../config.ts";
+import { NO_EXTRA_CONFIG } from "../config.ts";
 
-export default class ButtonTestCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+export default declareCommand({
+    async run(interaction, config) {
         await interaction.reply({
             components: [new ActionRowBuilder<MessageActionRowComponentBuilder>()
                 .addComponents(
@@ -19,17 +18,16 @@ export default class ButtonTestCommand extends Command {
                         .setCustomId("620442791f594d7281b24a608a73e687"),
                 )], flags: [MessageFlags.IsComponentsV2]
         });
-    }
-
-    async button(interaction: ButtonInteraction, config: Config): Promise<void> {
+    },
+    async button(interaction, config): Promise<void> {
         console.log(interaction.customId);
         await interaction.reply({
             content: "ur cute",
             flags: [MessageFlags.Ephemeral]
         })
-    }
-    dependsOn = []
-    slashCommand = new SlashCommandBuilder()
+    },
+    dependsOn: NO_EXTRA_CONFIG,
+    slashCommand: new SlashCommandBuilder()
         .setName("buttontest")
         .setDescription("test the button").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
@@ -38,5 +36,5 @@ export default class ButtonTestCommand extends Command {
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ]),
+})

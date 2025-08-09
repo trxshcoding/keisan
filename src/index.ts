@@ -9,10 +9,10 @@ import {
 } from "discord.js";
 import path from "node:path";
 import fs from "node:fs";
-import { Command, ContextCommand, ICommand } from "./command.ts";
+import { tryPackageCommand, undeclareCommand, type AnyCommand, type PackagedCommand } from "./command.ts";
 import { fileURLToPath } from "url";
 import { type Config, config } from "./config.ts";
-import { ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 import { registerFont } from "canvas";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,35 +22,30 @@ const client = new Client({
     intents: [],
 });
 
-const allCommands: ICommand[] = []
 
-
+const allCommands: PackagedCommand<AnyCommand<unknown>, unknown>[] = []
 const commandDir = path.join(__dirname, "commands");
-balls: for (const file of fs.readdirSync(commandDir)) {
+for (const file of fs.readdirSync(commandDir)) {
     if (!file.endsWith('.ts')) continue
     let command = await import(path.join(commandDir, file));
-    let instance
     try {
-        instance = new command.default()
+        const declaredCommand = undeclareCommand(command.default);
+        const packagedCommand = tryPackageCommand(declaredCommand)
+        allCommands.push(packagedCommand)
     } catch (e) {
         throw new Error(`Could not instantiate command from ${file}`, { cause: e })
     }
-    if (!(instance instanceof ICommand))
-        throw `${instance} is not an ICommand instance (imported from ${file})`;
-    for (const depending of instance.dependsOn) {
-        if (!Object.hasOwn(config, depending)) {
-            console.warn(`${file} was not loaded because it depends on ${depending}`);
-            continue balls;
-        }
-    }
-    allCommands.push(instance)
 }
-const commands = allCommands.filter(it => it instanceof Command);
-const contextCommands = allCommands.filter(it => it instanceof ContextCommand);
+const commands = allCommands.filter(it => 'slashCommand' in it);
+const contextCommands = allCommands.filter(it => 'contextDefinition' in it);
 const contextCommandLUT = Object.fromEntries(contextCommands.map(it => [it.contextDefinition.name, it]))
 const commandLookup = Object.fromEntries(commands.map(it => [it.slashCommand.name, it]))
 
-contextCommands.forEach(it => it.contextDefinition.type === it.targetType)
+contextCommands.forEach(it => {
+    if (it.contextDefinition.type !== it.targetType) {
+        throw new Error(`${it.contextDefinition} has a different type than ${it.targetType}`)
+    }
+})
 
 function makeDefaultAvailableEverywhere<T extends { setContexts(...contexts: Array<InteractionContextType>): any, readonly contexts?: InteractionContextType[] }>(t: T): T {
     if (!t.contexts)
@@ -89,7 +84,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (command.targetType != (interaction.isUserContextMenuCommand() ? ApplicationCommandType.User : ApplicationCommandType.Message))
         console.error("Out of date discord definition of this context command")
     try {
-        await command.run(interaction, interaction.isUserContextMenuCommand() ? interaction.targetUser : interaction.targetMessage, config)
+        await command.run(interaction, interaction.isUserContextMenuCommand() ? interaction.targetUser : interaction.targetMessage, Object.assign({}, config, command.storedConfig))
     } catch (e) {
         console.error("error during context command execution: " + commandName, e)
         replyWithError(interaction)
@@ -105,7 +100,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return
     }
     try {
-        await command.modal(interaction, config);
+        await command.modal?.(interaction, Object.assign({}, config, command.storedConfig));
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
         replyWithError(interaction)
@@ -123,7 +118,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     try {
-        await command.run(interaction, config);
+        await command.run(interaction, Object.assign({}, config, command.storedConfig));
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
         replyWithError(interaction)
@@ -142,7 +137,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     try {
-        await command.autoComplete(interaction, config, interaction.options.getFocused(true));
+        await command.autoComplete?.(interaction, Object.assign({}, config, command.storedConfig), interaction.options.getFocused(true));
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
     }
@@ -158,7 +153,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return
     }
     try {
-        await command.button(interaction, config);
+        await command.button?.(interaction, Object.assign({}, config, command.storedConfig));
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
         replyWithError(interaction)
@@ -185,7 +180,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return
     }
     try {
-        await command.modal(interaction, config);
+        await command.modal?.(interaction, Object.assign({}, config, command.storedConfig));
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
     }

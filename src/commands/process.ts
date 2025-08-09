@@ -1,11 +1,10 @@
-import { Command } from "../command.ts";
+import { declareCommand } from "../command.ts";
 import {
     ApplicationIntegrationType,
-    ChatInputCommandInteraction,
     InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
-import { type Config } from "../config.ts";
+import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 import packageJson from "../../package.json" with {type: "json"};
 
 function toHumanReadableTime(n: number) {
@@ -27,8 +26,8 @@ function toHumanReadableTime(n: number) {
     return result.join(", ")
 }
 
-export default class PingCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+export default declareCommand({
+    async run(interaction, config) {
         const mem = process.memoryUsage()
         const memoryUsage = Object.values(mem).reduce((a, b) => a + b, 0)
 
@@ -38,9 +37,9 @@ uptime: ${toHumanReadableTime(process.uptime())}
 memory: ${Math.floor(memoryUsage / 1024 / 1024)} mb
 node: \`${process.versions.node}\`, discord.js: \`${packageJson.dependencies["discord.js"].replace(/[^\d\.]/g, "")}\``,
         });
-    }
-    dependsOn = []
-    slashCommand = new SlashCommandBuilder()
+    },
+    dependsOn: NO_EXTRA_CONFIG,
+    slashCommand: new SlashCommandBuilder()
         .setName("process")
         .setDescription("info for NERDS").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
@@ -49,5 +48,5 @@ node: \`${process.versions.node}\`, discord.js: \`${packageJson.dependencies["di
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ]),
+})
