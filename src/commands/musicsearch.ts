@@ -12,6 +12,7 @@ import {
 import { type Config } from "../config.ts";
 import { getSongOnPreferredProvider, kyzaify, lobotomizedSongButton, musicCache, nowPlayingView } from "../music.ts";
 import * as z from 'zod';
+import { hash } from "crypto";
 
 const itunesResponseShape = z.object({
     results: z.array(z.object({
@@ -30,15 +31,20 @@ export default class PingCommand extends Command {
         await interaction.deferReply()
         const search = interaction.options.getString("search")!
         const lobotomized = interaction.options.getBoolean("lobotomized") ?? true
-        const paramsObj = { entity: "song", term: search };
-        const searchParams = new URLSearchParams(paramsObj);
+        let link = ""
 
-        const itunesResponse = await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`);
-        const itunesJson = await itunesResponse.json();
-        const itunesinfo = itunesResponseShape.parse(itunesJson);
-        const itunesSong = itunesinfo.results[0];
+        if (search.trim().match(/^https?:\/\//)) {
+            link = search.trim()
+        } else {
+            const paramsObj = { entity: "song", term: search };
+            const searchParams = new URLSearchParams(paramsObj);
+            const itunesResponse = await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`);
+            const itunesJson = await itunesResponse.json();
+            const itunesinfo = itunesResponseShape.parse(itunesJson);
+            const itunesSong = itunesinfo.results[0];
+            link = itunesSong.trackViewUrl
+        }
 
-        const link = itunesSong.trackViewUrl
         let preferredApi, songlink, isCached = false
         if (musicCache[link]) {
             preferredApi = musicCache[link].preferredApi
@@ -50,6 +56,11 @@ export default class PingCommand extends Command {
         }
 
         if (lobotomized) {
+            const emoji = await interaction.client.application.emojis.create({
+                attachment: preferredApi.thumbnailUrl,
+                name: hash("md5", preferredApi.thumbnailUrl),
+            });
+
             const components = [
                 new ActionRowBuilder<MessageActionRowComponentBuilder>()
                     .addComponents(
@@ -60,9 +71,11 @@ export default class PingCommand extends Command {
                     ),
             ];
             await interaction.followUp({
-                content: `### ${preferredApi.title}\n-# by ${preferredApi.artist}`,
+                content: `### ${preferredApi.title} ${emoji}\n-# by ${preferredApi.artist}`,
                 components,
             })
+
+            await emoji.delete()
             return
         }
 
@@ -76,7 +89,7 @@ export default class PingCommand extends Command {
     button = lobotomizedSongButton
     dependsOn = []
     slashCommand = new SlashCommandBuilder()
-        .setName("musicsearch")
+        .setName("musicinfo")
         .setDescription("search yo music")
         .setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
