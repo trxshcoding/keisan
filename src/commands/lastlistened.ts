@@ -30,7 +30,7 @@ const listenBrainzListensShape = z.object(
 export default class LastListenedCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         await interaction.deferReply()
-        const user = interaction.options.getString("user") ?? config.listenbrainzAccount;
+        const user = interaction.options.getString("user") ?? config.musicAccount;
         const historyAmount = interaction.options.getInteger("count") ?? 3;
         const meow = await fetch(`https://api.listenbrainz.org/1/user/${user}/listens`).then((res) => res.json());
         const zodded = listenBrainzListensShape.parse(meow)
@@ -46,7 +46,7 @@ export default class LastListenedCommand extends Command {
             content: `The last ${historyAmount} songs of ${user} were:\n\n${songs}`
         });
     }
-    dependsOn = ["listenbrainzAccount"]
+    dependsOn = ["musicAccount"]
     slashCommand = new SlashCommandBuilder()
         .setName("lastlistened")
         .setDescription("get that last listened music of a person").setIntegrationTypes([

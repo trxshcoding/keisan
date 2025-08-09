@@ -22,7 +22,7 @@ const configFallback = {
 
 const configT = z.object({
   token: z.string(),
-  listenbrainzAccount: z.string().optional(),
+  musicAccount: z.string().optional(),
   lastFMApiKey: z.string().optional(),
   gitapi: z.string().optional(),
   sharkeyInstance: z.string().optional(),
