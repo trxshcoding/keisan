@@ -76,8 +76,8 @@ export default class PingCommand extends Command {
                 ).data?.results
 
                 if (Array.isArray(iTunesInfo) && iTunesInfo[0]) {
-                    const track = (iTunesInfo.find((res: any) => res.trackName === nowPlaying.songName)
-                        || iTunesInfo.find((res: any) => res.trackName.toLowerCase() === nowPlaying.songName.toLowerCase())
+                    const track = (iTunesInfo.find((res) => res.trackName === nowPlaying.songName)
+                        || iTunesInfo.find((res) => res.trackName.toLowerCase() === nowPlaying.songName.toLowerCase())
                         || iTunesInfo[0])
                     link = track.trackViewUrl
                     nowPlaying.albumName ??= track.collectionName
