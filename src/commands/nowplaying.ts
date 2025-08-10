@@ -11,12 +11,13 @@ import {
     SlashCommandBuilder
 } from "discord.js";
 
-import { getSongOnPreferredProvider, lobotomizedSongButton, musicCache, nowPlayingView } from "../music.ts"
+import { getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache, songView } from "../music.ts"
 import { type Config } from "../config.ts";
 import { hash } from "crypto"
+import { escapeMarkdown } from "../util.ts";
 
-async function getNowPlaying(username: string, lastFMApiKey?: string, lastFMFetchLink?: boolean): Promise<{
-    songName: string, artistName: string, link: string
+async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<{
+    songName: string, artistName: string, albumName?: string, link?: string
 } | false | undefined> {
     if (!lastFMApiKey) {
         const res = await fetch(`https://api.listenbrainz.org/1/user/${username}/playing-now`).then((res) => res.json());
@@ -25,8 +26,9 @@ async function getNowPlaying(username: string, lastFMApiKey?: string, lastFMFetc
         else {
             const trackMetadata = res.payload.listens[0].track_metadata
             return {
-                songName: trackMetadata.artist_name,
-                artistName: trackMetadata.track_name,
+                songName: trackMetadata.track_name,
+                artistName: trackMetadata.artist_name,
+                albumName: trackMetadata.release_name,
                 link: trackMetadata.additional_info.origin_url
             }
         }
@@ -42,7 +44,7 @@ async function getNowPlaying(username: string, lastFMApiKey?: string, lastFMFetc
             return {
                 songName: track.name,
                 artistName: track.artist["#text"],
-                link: ""
+                albumName: track.album["#text"]
             }
         }
     }
@@ -57,7 +59,7 @@ export default class PingCommand extends Command {
         let useSonglink = interaction.options.getBoolean("usesonglink") ?? config.commandDefaults.nowplaying.useSonglink
         const useiTunes = interaction.options.getBoolean("useitunes") ?? config.commandDefaults.nowplaying.useItunes
 
-        const nowPlaying = await getNowPlaying(user, useLastFM ? config.lastFMApiKey : undefined, !useiTunes)
+        const nowPlaying = await getNowPlaying(user, useLastFM ? config.lastFMApiKey : undefined)
         if (typeof nowPlaying === "undefined") {
             await interaction.followUp("something shat itself!");
             return;
@@ -69,11 +71,16 @@ export default class PingCommand extends Command {
             const searchParams = new URLSearchParams(paramsObj);
             let { link } = nowPlaying
             if (!link || useiTunes) {
-                const itunesinfo = (await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()).results[0];
-                link = itunesinfo?.trackViewUrl
-                if (!link) {
-                    await interaction.followUp("something shat itself!");
-                    return;
+                const iTunesInfo = itunesResponseShape.safeParse(
+                    await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()
+                ).data?.results
+
+                if (Array.isArray(iTunesInfo) && iTunesInfo[0]) {
+                    const track = (iTunesInfo.find((res: any) => res.trackName === nowPlaying.songName)
+                        || iTunesInfo.find((res: any) => res.trackName.toLowerCase() === nowPlaying.songName.toLowerCase())
+                        || iTunesInfo[0])
+                    link = track.trackViewUrl
+                    nowPlaying.albumName ??= track.collectionName
                 }
             }
 
@@ -85,10 +92,10 @@ export default class PingCommand extends Command {
                 isCached = true
             } else if (useSonglink) {
                 songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
-                preferredApi = getSongOnPreferredProvider(songlink, link)
+                preferredApi = getSongOnPreferredProvider(songlink, link!)
             }
 
-            if (preferredApi && useSonglink) {
+            if (preferredApi && useSonglink && link) {
                 if (!isCached) musicCache[link] ??= {
                     preferredApi,
                     songlink
@@ -112,29 +119,31 @@ export default class PingCommand extends Command {
                             ),
                     ];
                     await interaction.followUp({
-                        content: `### ${preferredApi.title.replace(/([#*_~`|])/g, "\\$1")} ${emoji}\n-# by ${preferredApi.artist}`,
+                        content: `### ${escapeMarkdown(preferredApi.title)} ${emoji}
+-# by ${escapeMarkdown(preferredApi.artist)}${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}`,
                         components,
                     })
-                    // we dont have infinite emoji slots
+                    // we don't have infinite emoji slots
                     await emoji.delete()
                     return
                 }
-                const components = nowPlayingView(songlink, preferredApi)
+                const components = songView(songlink, preferredApi, nowPlaying.albumName)
                 await interaction.followUp({
                     components,
                     flags: [MessageFlags.IsComponentsV2],
                 })
             } else {
-                const embedfallback = new EmbedBuilder()
+                const embedFallback = new EmbedBuilder()
                     .setAuthor({
-                        name: nowPlaying.artistName
+                        name: escapeMarkdown(nowPlaying.artistName)
                     })
-                    .setTitle(nowPlaying.songName)
+                    .setTitle(escapeMarkdown(nowPlaying.songName))
                     .setFooter({
                         text: "song.link proxying was turned off or failed - amy jr",
                     });
+                if (nowPlaying.albumName) embedFallback.setDescription(`from ${nowPlaying.albumName}`)
 
-                await interaction.followUp({ embeds: [embedfallback] })
+                await interaction.followUp({ embeds: [embedFallback] })
             }
         }
 

@@ -7,12 +7,11 @@ import {
     ButtonBuilder,
     ButtonStyle,
     ButtonInteraction,
-    MessageFlags,
-    type SlashCommandBuilder, ModalBuilder,
-    ApplicationEmoji
+    MessageFlags
 } from "discord.js";
 import { z } from "zod";
 import type { Config } from "./config";
+import { escapeMarkdown } from "./util.ts";
 
 export interface Song {
     title: string;
@@ -76,7 +75,19 @@ export function getSongOnPreferredProvider(json: unknown, link: string): Song | 
     return null
 }
 
-export function nowPlayingView(songlink: z.infer<typeof songLinkShape>, preferredApi: Song) {
+export const itunesResponseShape = z.object({
+    results: z.array(z.object({
+        artistId: z.number(),
+        artistName: z.string(),
+        trackViewUrl: z.string(),
+        trackName: z.string(),
+        collectionName: z.string(),
+        collectionCensoredName: z.string().optional(),
+        censoredTrackName: z.string().optional(),
+    }))
+})
+
+export function songView(songlink: z.infer<typeof songLinkShape>, preferredApi: Song, albumName?: string) {
     const components = [
         new ContainerBuilder()
             .addSectionComponents(
@@ -86,7 +97,10 @@ export function nowPlayingView(songlink: z.infer<typeof songLinkShape>, preferre
                             .setURL(preferredApi.thumbnailUrl)
                     )
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(`# ${preferredApi.artist} - ${preferredApi.title}`),
+                        new TextDisplayBuilder().setContent(
+                            `# ${escapeMarkdown(preferredApi.artist)} - ${escapeMarkdown(preferredApi.title)}
+${albumName ? `from ${albumName}` : ""}`
+                        ),
                     ),
             )
     ];
@@ -125,7 +139,10 @@ export async function lobotomizedSongButton(interaction: ButtonInteraction, conf
     if (!link.startsWith("http"))
         link = Object.entries(musicCache).find(([, v]) => v.hash === link)?.[0] || ""
     if (!link) {
-        interaction.reply("something sharted itself")
+        interaction.reply({
+            content: "something sharted itself",
+            flags: [MessageFlags.Ephemeral]
+        })
         return
     }
 
@@ -139,7 +156,7 @@ export async function lobotomizedSongButton(interaction: ButtonInteraction, conf
     }
 
     if (preferredApi) {
-        const components = nowPlayingView(songlink, preferredApi)
+        const components = songView(songlink, preferredApi)
         await interaction.reply({
             components,
             flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral],

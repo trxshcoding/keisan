@@ -44,3 +44,7 @@ export class ContextyalBuilder extends ModalBuilder {
         return this
     }
 }
+
+export function escapeMarkdown(content: string) {
+    return content.replace(/([#*_~`|])/g, "\\$1")
+}

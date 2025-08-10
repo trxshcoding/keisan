@@ -1,48 +1,43 @@
 import { Command } from "../command.ts";
-import { chunkArray } from '../util.ts';
+import { escapeMarkdown } from '../util.ts';
 import {
     ActionRowBuilder,
     ApplicationIntegrationType, ButtonBuilder, ButtonStyle,
-    ChatInputCommandInteraction, EmbedBuilder,
+    ChatInputCommandInteraction,
     InteractionContextType,
     MessageFlags,
     SlashCommandBuilder,
     type MessageActionRowComponentBuilder
 } from "discord.js";
 import { type Config } from "../config.ts";
-import { getSongOnPreferredProvider, kyzaify, lobotomizedSongButton, musicCache, nowPlayingView } from "../music.ts";
-import * as z from 'zod';
+import { getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache, songView } from "../music.ts";
 import { hash } from "crypto";
-
-const itunesResponseShape = z.object({
-    results: z.array(z.object({
-        artistId: z.number(),
-        artistName: z.string(),
-        trackViewUrl: z.string(),
-        trackName: z.string(),
-        collectionName: z.string(),
-        collectionCensoredName: z.string().optional(),
-        censoredTrackName: z.string().optional(),
-    }))
-})
 
 export default class PingCommand extends Command {
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         await interaction.deferReply()
-        const search = interaction.options.getString("search")!
+        const search = interaction.options.getString("search")!.trim()
         const lobotomized = interaction.options.getBoolean("lobotomized") ?? true
-        let link = ""
+        let link = "", albumName = ""
 
-        if (search.trim().match(/^https?:\/\//)) {
-            link = search.trim()
+        if (search.match(/^https?:\/\//)) {
+            link = search
         } else {
             const paramsObj = { entity: "song", term: search };
             const searchParams = new URLSearchParams(paramsObj);
             const itunesResponse = await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`);
             const itunesJson = await itunesResponse.json();
-            const itunesinfo = itunesResponseShape.parse(itunesJson);
-            const itunesSong = itunesinfo.results[0];
-            link = itunesSong.trackViewUrl
+            const iTunesInfo = itunesResponseShape.safeParse(itunesJson).data?.results;
+            if (!iTunesInfo) {
+                await interaction.followUp("couldn't find that")
+                return
+            }
+
+            const track = (iTunesInfo.find((res: any) => res.trackName === search)
+                || iTunesInfo.find((res: any) => res.trackName.toLowerCase() === search.toLowerCase())
+                || iTunesInfo[0])
+            link = track.trackViewUrl
+            albumName = track.collectionName
         }
 
         let preferredApi, songlink, isCached = false
@@ -71,7 +66,8 @@ export default class PingCommand extends Command {
                     ),
             ];
             await interaction.followUp({
-                content: `### ${preferredApi.title} ${emoji}\n-# by ${preferredApi.artist}`,
+                content: `### ${escapeMarkdown(preferredApi.title)} ${emoji}
+-# by ${escapeMarkdown(preferredApi.artist)}${albumName ? ` - from ${escapeMarkdown(albumName)}` : ""}`,
                 components,
             })
 
@@ -79,7 +75,7 @@ export default class PingCommand extends Command {
             return
         }
 
-        const components = nowPlayingView(songlink, preferredApi)
+        const components = songView(songlink, preferredApi, albumName)
         await interaction.followUp({
             components,
             flags: [MessageFlags.IsComponentsV2],
