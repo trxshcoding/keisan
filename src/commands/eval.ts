@@ -6,11 +6,11 @@ import {
     type UserResolvable
 } from "discord.js";
 import { parse as acornParse } from 'acorn'
-import { ContextCommand } from "../command.ts";
-import {type ModuleDeclaration,type Statement} from "acorn";
-import {generate} from "astring";
-import {inspect} from "node:util";
-import {config} from "../config.ts";
+import { type ModuleDeclaration, type Statement } from "acorn";
+import { generate } from "astring";
+import { inspect } from "node:util";
+import { config, NO_EXTRA_CONFIG } from "../config.ts";
+import { declareCommand } from "../command.ts";
 
 
 function transformLastInBlock<T extends Statement | ModuleDeclaration>(
@@ -63,16 +63,16 @@ function transformStatement<T extends Statement | ModuleDeclaration>(
 }
 
 
-export default class Eval extends ContextCommand<Message> {
-    commandName = "eval"
-    dependsOn = []
-    targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
-    contextDefinition: ContextMenuCommandBuilder =
+export default declareCommand({
+    commandName: "eval",
+    dependsOn: NO_EXTRA_CONFIG,
+    targetType: ApplicationCommandType.Message,
+    contextDefinition:
         new ContextMenuCommandBuilder()
             .setName('eval')
-            .setType(ApplicationCommandType.Message)
+            .setType(ApplicationCommandType.Message),
     async run(interaction: ContextMenuCommandInteraction, target: Message): Promise<void> {
-        if (interaction.user.id !== config.owner){
+        if (interaction.user.id !== config.owner) {
             await interaction.reply("who tf are you")
             return;
         }
@@ -135,4 +135,4 @@ export default class Eval extends ContextCommand<Message> {
             await interaction.editReply('```js\n' + escapeCodeBlock(inspect(result)) + "\n```")
         }
     }
-}
+})

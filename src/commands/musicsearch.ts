@@ -1,4 +1,3 @@
-import { Command } from "../command.ts";
 import { escapeMarkdown } from '../util.ts';
 import {
     ActionRowBuilder,
@@ -9,12 +8,26 @@ import {
     SlashCommandBuilder,
     type MessageActionRowComponentBuilder
 } from "discord.js";
-import { type Config } from "../config.ts";
-import { getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache, songView } from "../music.ts";
+import { getSongOnPreferredProvider, lobotomizedSongButton, musicCache, songView } from "../music.ts";
+import { NO_EXTRA_CONFIG } from "../config.ts";
 import { hash } from "crypto";
+import { declareCommand } from "../command.ts";
+import { z } from 'zod';
 
-export default class PingCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+const itunesResponseShape = z.object({
+    results: z.array(z.object({
+        artistId: z.number(),
+        artistName: z.string(),
+        trackViewUrl: z.string(),
+        trackName: z.string(),
+        collectionName: z.string(),
+        collectionCensoredName: z.string().optional(),
+        censoredTrackName: z.string().optional(),
+    }))
+})
+
+export default declareCommand({
+    async run(interaction: ChatInputCommandInteraction, config) {
         await interaction.deferReply()
         const search = interaction.options.getString("search")!.trim()
         const lobotomized = interaction.options.getBoolean("lobotomized") ?? true
@@ -80,11 +93,10 @@ export default class PingCommand extends Command {
             components,
             flags: [MessageFlags.IsComponentsV2],
         })
-    }
-
-    button = lobotomizedSongButton
-    dependsOn = []
-    slashCommand = new SlashCommandBuilder()
+    },
+    button: lobotomizedSongButton,
+    dependsOn: NO_EXTRA_CONFIG,
+    slashCommand: new SlashCommandBuilder()
         .setName("musicinfo")
         .setDescription("search yo music")
         .setIntegrationTypes([
@@ -100,5 +112,5 @@ export default class PingCommand extends Command {
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ])
+})

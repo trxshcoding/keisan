@@ -2,21 +2,23 @@ import {
     ApplicationCommandType,
     ContextMenuCommandBuilder,
     ContextMenuCommandInteraction,
-    Message} from "discord.js";
-import { ContextCommand } from "../command.ts";
+    Message
+} from "discord.js";
+import { declareCommand } from "../command";
+import { NO_EXTRA_CONFIG } from "../config";
 
-export default class Mock extends ContextCommand<Message> {
-    commandName = "Mock"
-    dependsOn = []
-    targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
-    contextDefinition: ContextMenuCommandBuilder =
+export default declareCommand({
+    commandName: "Mock",
+    dependsOn: NO_EXTRA_CONFIG,
+    targetType: ApplicationCommandType.Message,
+    contextDefinition:
         new ContextMenuCommandBuilder()
             .setName('mock')
-            .setType(ApplicationCommandType.Message)
+            .setType(ApplicationCommandType.Message),
     async run(interaction: ContextMenuCommandInteraction, target: Message): Promise<void> {
         await interaction.deferReply();
         let message = target.content;
-        message = message.replace(/(.)(.)/g, (a,b,c)=>b.toLowerCase() + c.toUpperCase())
+        message = message.replace(/(.)(.)/g, (a, b, c) => b.toLowerCase() + c.toUpperCase())
         await interaction.followUp(message);
     }
-}
+})

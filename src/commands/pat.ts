@@ -1,5 +1,4 @@
 
-import { Command } from "../command.ts";
 import {
     ApplicationIntegrationType,
     Attachment,
@@ -8,17 +7,17 @@ import {
     InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
-import { type Config } from "../config.ts";
+import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 import sharp, { type SharpInput } from "sharp";
 import * as path from 'path';
 import { Canvas, loadImage } from "canvas";
 import { readdir, readFile } from "fs/promises";
+import { declareCommand } from "../command.ts";
 
 const patpatGifPath = path.join('src/commands/', 'patpatframes')
 
-export default class PatCommand extends Command {
-
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+export default declareCommand({
+    async run(interaction: ChatInputCommandInteraction, config) {
         const user = interaction.options.getUser('user', true)
         const speed = interaction.options.getInteger('speed') ?? config.commandDefaults.pat.speed
         const avatarResponse = await fetch(user.avatarURL()!)
@@ -66,11 +65,9 @@ export default class PatCommand extends Command {
                     .setDescription(`the ${user.displayName} is being gently patted`),
             ]
         });
-    }
-
-
-    dependsOn = []
-    slashCommand = new SlashCommandBuilder()
+    },
+    dependsOn: NO_EXTRA_CONFIG,
+    slashCommand: new SlashCommandBuilder()
         .setName("pat")
         .setDescription("Pats someone!").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
@@ -85,5 +82,5 @@ export default class PatCommand extends Command {
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ]),
+})

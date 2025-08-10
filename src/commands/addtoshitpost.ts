@@ -4,26 +4,26 @@ import {
     ContextMenuCommandInteraction,
     Message
 } from "discord.js";
-import { ContextCommand } from "../command.ts";
-import type {Config} from "../config.ts";
+import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
-import {fileURLToPath} from "url";
+import { fileURLToPath } from "url";
+import { declareCommand } from "../command.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export default class AddToShitposts extends ContextCommand<Message> {
-    commandName = "addtoshitposts"
-    dependsOn = []
-    targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
-    contextDefinition: ContextMenuCommandBuilder =
+export default declareCommand({
+    commandName: "addtoshitposts",
+    dependsOn: NO_EXTRA_CONFIG,
+    targetType: ApplicationCommandType.Message,
+    contextDefinition:
         new ContextMenuCommandBuilder()
             .setName('AddToShitposts')
-            .setType(ApplicationCommandType.Message)
-    async run(interaction: ContextMenuCommandInteraction, target: Message, config:Config): Promise<void> {
+            .setType(ApplicationCommandType.Message),
+    async run(interaction: ContextMenuCommandInteraction, target: Message, config: Config): Promise<void> {
         await interaction.deferReply();
-        await interaction.followUp({content: "uploading..."});
+        await interaction.followUp({ content: "uploading..." });
 
         const downloadFolderPath = path.join(__dirname, '..', '..', 'shitposts');
 
@@ -35,7 +35,7 @@ export default class AddToShitposts extends ContextCommand<Message> {
             return;
         }
 
-        if(target.attachments.size === 0){
+        if (target.attachments.size === 0) {
             await interaction.editReply({ content: "there is no shit for me to post" });
             return;
         }
@@ -61,6 +61,6 @@ export default class AddToShitposts extends ContextCommand<Message> {
                 return;
             }
         }
-        await interaction.editReply({content: "shits have been posted!"});
+        await interaction.editReply({ content: "shits have been posted!" });
     }
-}
+})

@@ -11,9 +11,8 @@ import {
     TextInputBuilder,
     TextInputStyle
 } from "discord.js";
-import { ContextCommand } from "../command.ts";
 import { AmyodalBuilder, ContextyalBuilder } from "../util.ts";
-import type { Config } from "../config.ts";
+import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 
 const imagecache: Record<string, string> = {};
 const __filename = fileURLToPath(import.meta.url);
@@ -23,13 +22,14 @@ import { hash } from "crypto"
 import { createCanvas, loadImage, registerFont } from "canvas";
 import path from "node:path";
 import { fileURLToPath } from "url";
+import { declareCommand } from "../command.ts";
 
-export default class Caption extends ContextCommand<Message> {
-    targetType: ApplicationCommandType.Message = ApplicationCommandType.Message;
-    contextDefinition: ContextMenuCommandBuilder =
+export default declareCommand({
+    targetType: ApplicationCommandType.Message,
+    contextDefinition:
         new ContextMenuCommandBuilder()
             .setName('caption')
-            .setType(ApplicationCommandType.Message)
+            .setType(ApplicationCommandType.Message),
     async run(interaction: ContextMenuCommandInteraction, target: Message): Promise<void> {
         let attachment = target.attachments.first();
         if (!attachment) {
@@ -54,7 +54,7 @@ export default class Caption extends ContextCommand<Message> {
                             .setPlaceholder("haha funny")
                     )
             ))
-    }
+    },
     async modal(interaction: ModalSubmitInteraction, config: Config) {
         //putting this here is a bad idea
         registerFont(path.join(__dirname, '../../impact.ttf'), { family: 'impact' });
@@ -101,7 +101,7 @@ export default class Caption extends ContextCommand<Message> {
                     .setDescription(`some meme`),
             ],
         })
-    }
-    dependsOn = []
-    commandName = "caption";
-}
+    },
+    dependsOn: NO_EXTRA_CONFIG,
+    commandName: "caption",
+})

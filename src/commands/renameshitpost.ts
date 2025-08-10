@@ -1,27 +1,26 @@
-import {Command} from "../command.ts";
 import {
     ApplicationIntegrationType, type AutocompleteFocusedOption, AutocompleteInteraction,
     ChatInputCommandInteraction,
     InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
-import { config, type Config } from "../config.ts";
-import {DOWNLOAD_FOLDER_PATH, getFilesInFolder} from "./shitpost.ts";
+import { config, NO_EXTRA_CONFIG, type Config } from "../config.ts";
+import { DOWNLOAD_FOLDER_PATH, getFilesInFolder } from "./shitpost.ts";
 import fs from "node:fs";
 import path from "node:path";
+import { declareCommand } from "../command.ts";
 
-export default class RenameshitpostCommand extends Command {
+export default declareCommand({
 
-    async run(interaction: ChatInputCommandInteraction, config: Config, ) {
+    async run(interaction: ChatInputCommandInteraction, config) {
         await interaction.deferReply();
         const originalname = interaction.options.getString("originalname")!;
         const newname = interaction.options.getString("newname")!;
 
         fs.renameSync(path.join(DOWNLOAD_FOLDER_PATH, originalname), path.join(DOWNLOAD_FOLDER_PATH, newname));
         await interaction.followUp("shitpost renamed.")
-    }
-
-    async autoComplete(interaction: AutocompleteInteraction, config: Config, option: AutocompleteFocusedOption): Promise<void> {
+    },
+    async autoComplete(interaction: AutocompleteInteraction, config, option: AutocompleteFocusedOption): Promise<void> {
         if (option.name === 'originalname') {
             const files = await getFilesInFolder(DOWNLOAD_FOLDER_PATH);
 
@@ -32,9 +31,9 @@ export default class RenameshitpostCommand extends Command {
                 filteredFiles.slice(0, 25)
             );
         }
-    }
-    dependsOn = []
-    slashCommand = new SlashCommandBuilder()
+    },
+    dependsOn: NO_EXTRA_CONFIG,
+    slashCommand: new SlashCommandBuilder()
         .setName("renameshitpost")
         .setDescription("rename the shitpost").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
@@ -48,5 +47,5 @@ export default class RenameshitpostCommand extends Command {
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ]),
+})

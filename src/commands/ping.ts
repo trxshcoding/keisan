@@ -1,20 +1,20 @@
-import {Command} from "../command.ts";
+import { declareCommand } from "../command.ts";
 import {
     ApplicationIntegrationType,
     ChatInputCommandInteraction,
     InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
-import { type Config } from "../config.ts";
+import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 
-export default class PingCommand extends Command {
+export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         await interaction.reply({
             content: 'Pong!',
         });
-    }
-    dependsOn = []
-    slashCommand = new SlashCommandBuilder()
+    },
+    dependsOn: NO_EXTRA_CONFIG,
+    slashCommand: new SlashCommandBuilder()
         .setName("ping")
         .setDescription("Pong!").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
@@ -23,5 +23,5 @@ export default class PingCommand extends Command {
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ]),
+})

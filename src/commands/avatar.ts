@@ -7,18 +7,17 @@ import {
     MediaGalleryItemBuilder,
     Message, MessageFlags, type User
 } from "discord.js";
-import { Buffer } from 'node:buffer';
-import { ContextCommand } from "../command.ts";
-import type { Config } from "../config.ts";
+import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
+import { declareCommand } from "../command.ts";
 
-export default class GetAvatar extends ContextCommand<User> {
-    commandName = "getavatar";
-    dependsOn = []
-    targetType: ApplicationCommandType.User = ApplicationCommandType.User;
-    contextDefinition: ContextMenuCommandBuilder =
+export default declareCommand({
+    commandName: "getavatar",
+    dependsOn: NO_EXTRA_CONFIG,
+    targetType: ApplicationCommandType.User,
+    contextDefinition:
         new ContextMenuCommandBuilder()
             .setName('get avatar')
-            .setType(ApplicationCommandType.User)
+            .setType(ApplicationCommandType.User),
     async run(interaction: ContextMenuCommandInteraction, target: User, config: Config): Promise<void> {
         await interaction.deferReply()
 
@@ -53,4 +52,4 @@ export default class GetAvatar extends ContextCommand<User> {
             flags: [MessageFlags.IsComponentsV2]
         })
     }
-}
+})

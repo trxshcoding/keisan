@@ -25,48 +25,21 @@ export const NO_EXTRA_CONFIG = z.object({})
 
 const configT = z.object({
   token: z.string(),
-  // musicAccount: z.string().optional(),
-  // lastFMApiKey: z.string().optional(),
-  // gitapi: z.string().optional(),
-  // sharkeyInstance: z.string().optional(),
-  // radioURL: z.string().optional(),
-  // radioName: z.string().optional(),
-  // owner: z.string(),
-  // commandDefaults: z.object({
-  //   nowplaying: z.object({
-  //     lobotomized: z.coerce.boolean().default(true),
-  //     useSonglink: z.coerce.boolean().default(true),
-  //     useItunes: z.coerce.boolean().default(false),
-  //     useLastFM: z.coerce.boolean().default(false)
-  //   }),
-  //   pat: z.object({
-  //     speed: z.coerce.number().default(0),
-  //   }),
-  //   lastlistened: z.object({
-  //     historyAmount: z.coerce.number().default(3),
-  //   })
-  // })
-  // musicAccount: z.string().optional(),
-  // lastFMApiKey: z.string().optional(),
-  // gitapi: z.string().optional(),
-  // sharkeyInstance: z.string().optional(),
-  // radioURL: z.string().optional(),
-  // radioName: z.string().optional(),
-  // owner: z.string(),
-  // commandDefaults: z.object({
-  //   nowplaying: z.object({
-  //     lobotomized: z.coerce.boolean().default(true),
-  //     useSonglink: z.coerce.boolean().default(true),
-  //     useItunes: z.coerce.boolean().default(false),
-  //     useLastFM: z.coerce.boolean().default(false)
-  //   }),
-  //   pat: z.object({
-  //     speed: z.coerce.number().default(0),
-  //   }),
-  //   lastlistened: z.object({
-  //     historyAmount: z.coerce.number().default(3),
-  //   })
-  // })
+  owner: z.string(),
+  commandDefaults: z.object({
+    nowplaying: z.object({
+      lobotomized: z.coerce.boolean().default(true),
+      useSonglink: z.coerce.boolean().default(true),
+      useItunes: z.coerce.boolean().default(false),
+      useLastFM: z.coerce.boolean().default(false)
+    }),
+    pat: z.object({
+      speed: z.coerce.number().default(0),
+    }),
+    lastlistened: z.object({
+      historyAmount: z.coerce.number().default(3),
+    })
+  })
 });
 type RawConfig = z.infer<typeof configT>;
 export type Config = RawConfig & { prisma: PrismaClient };

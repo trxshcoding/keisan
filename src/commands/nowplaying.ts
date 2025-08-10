@@ -1,4 +1,3 @@
-import { Command } from "../command.ts";
 import {
     ActionRowBuilder,
     ApplicationIntegrationType,
@@ -12,9 +11,10 @@ import {
 } from "discord.js";
 
 import { getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache, songView } from "../music.ts"
-import { type Config } from "../config.ts";
 import { hash } from "crypto"
 import { escapeMarkdown } from "../util.ts";
+import { declareCommand } from "../command.ts";
+import { z } from "zod";
 
 async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<{
     songName: string, artistName: string, albumName?: string, link?: string
@@ -50,8 +50,8 @@ async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<{
     }
 }
 
-export default class PingCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config: Config): Promise<void> {
+export default declareCommand({
+    async run(interaction: ChatInputCommandInteraction, config): Promise<void> {
         await interaction.deferReply()
         const user = interaction.options.getString("user") ?? config.musicAccount!;
         const lobotomized = interaction.options.getBoolean("lobotomized") ?? config.commandDefaults.nowplaying.lobotomized;
@@ -147,11 +147,13 @@ export default class PingCommand extends Command {
             }
         }
 
-    }
-
-    button = lobotomizedSongButton
-    dependsOn = ['musicAccount', 'lastFMApiKey']
-    slashCommand = new SlashCommandBuilder()
+    },
+    button: lobotomizedSongButton,
+    dependsOn: z.object({
+        musicAccount: z.string(),
+        lastFMApiKey: z.string()
+    }),
+    slashCommand: new SlashCommandBuilder()
         .setName("nowplaying")
         .setDescription("balls").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
@@ -175,5 +177,5 @@ export default class PingCommand extends Command {
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ]),
+})

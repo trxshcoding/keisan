@@ -1,5 +1,4 @@
 //thank you to https://git.lunya.pet/Lunya/Ai for the inspiration
-import {Command} from "../command.ts";
 import {
     ActionRowBuilder,
     ApplicationIntegrationType,
@@ -17,13 +16,15 @@ import {
     TextDisplayBuilder,
     ThumbnailBuilder
 } from "discord.js";
-import type {Config} from "../config.ts";
-import {trimWhitespace} from "../util.ts";
+import type { Config } from "../config.ts";
+import { trimWhitespace } from "../util.ts";
+import { declareCommand } from "../command.ts";
+import { z } from "zod";
 
 const fediUserRegex = /@[^.@\s]+@(?:[^.@\s]+\.)+[^.@\s]+/
 
-export default class fediLookUpCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+export default declareCommand({
+    async run(interaction: ChatInputCommandInteraction, config) {
         await interaction.deferReply();
         const fedistring = interaction.options.getString("string")!
         if (!fediUserRegex.test(fedistring)) {
@@ -43,7 +44,7 @@ export default class fediLookUpCommand extends Command {
                 return;
             }
             let mainComponent
-            const components:(TextDisplayBuilder|ContainerBuilder|ActionRowBuilder<MessageActionRowComponentBuilder>)[] = [
+            const components: (TextDisplayBuilder | ContainerBuilder | ActionRowBuilder<MessageActionRowComponentBuilder>)[] = [
                 mainComponent = new ContainerBuilder()
                     .setSpoiler(resp.cw !== null)
                     .addSectionComponents(
@@ -74,13 +75,13 @@ export default class fediLookUpCommand extends Command {
                     ),
             ]
 
-            if  (resp.text) {
+            if (resp.text) {
                 mainComponent.addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(resp.text),
                 )
             }
 
-            if (resp.files.length > 0){
+            if (resp.files.length > 0) {
                 const images = new MediaGalleryBuilder()
                 for (const file of resp.files) {
                     if (!file.type.startsWith("image/")) {
@@ -98,7 +99,7 @@ export default class fediLookUpCommand extends Command {
                 )
             }
             if (resp.cw !== null) {
-                components.unshift(new TextDisplayBuilder().setContent("cw: "+ resp.cw))
+                components.unshift(new TextDisplayBuilder().setContent("cw: " + resp.cw))
             }
             await interaction.followUp({
                 components: components,
@@ -157,19 +158,20 @@ export default class fediLookUpCommand extends Command {
             components,
             flags: [MessageFlags.IsComponentsV2],
         });
-    }
-    dependsOn = ["sharkeyInstance"]
-    slashCommand = new SlashCommandBuilder()
+    },
+    dependsOn: z.object({
+        sharkeyInstance: z.string()
+    }),
+    slashCommand: new SlashCommandBuilder()
         .setName("fedilookup")
         .setDescription("look up shit from fedi").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
         ]).addStringOption(option => {
-                return option.setName("string").setDescription("either note id or user").setRequired(true);
-            }
-        )
+            return option.setName("string").setDescription("either note id or user").setRequired(true);
+        })
         .setContexts([
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ])
+})

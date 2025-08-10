@@ -1,4 +1,3 @@
-import {Command} from "../command.ts";
 import {
     ApplicationIntegrationType,
     ChatInputCommandInteraction,
@@ -6,8 +5,7 @@ import {
     SlashCommandBuilder
 } from "discord.js";
 import * as z from 'zod'
-import {type Config} from "../config.ts";
-import {inspect} from "node:util";
+import { declareCommand } from "../command.ts";
 
 const listenBrainzListensShape = z.object(
     {
@@ -27,8 +25,8 @@ const listenBrainzListensShape = z.object(
     }
 )
 
-export default class LastListenedCommand extends Command {
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+export default declareCommand({
+    async run(interaction: ChatInputCommandInteraction, config) {
         await interaction.deferReply()
         const user = interaction.options.getString("user") ?? config.musicAccount;
         const historyAmount = interaction.options.getInteger("count") ?? 3;
@@ -45,9 +43,11 @@ export default class LastListenedCommand extends Command {
         await interaction.followUp({
             content: `The last ${historyAmount} songs of ${user} were:\n\n${songs}`
         });
-    }
-    dependsOn = ["musicAccount"]
-    slashCommand = new SlashCommandBuilder()
+    },
+    dependsOn: z.object({
+        "musicAccount": z.string()
+    }),
+    slashCommand: new SlashCommandBuilder()
         .setName("lastlistened")
         .setDescription("get that last listened music of a person").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
@@ -62,5 +62,5 @@ export default class LastListenedCommand extends Command {
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ]),
+})

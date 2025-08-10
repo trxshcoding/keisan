@@ -1,15 +1,14 @@
-import {Command} from "../command.ts";
 import {
     ApplicationIntegrationType, AttachmentBuilder, type AutocompleteFocusedOption, AutocompleteInteraction,
     ChatInputCommandInteraction,
     InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
-import {config, type Config} from "../config.ts";
-import {inspect} from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
-import {fileURLToPath} from "url";
+import { fileURLToPath } from "url";
+import { declareCommand } from "../command";
+import { NO_EXTRA_CONFIG } from "../config";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,10 +36,8 @@ export async function getFilesInFolder(folderPath: string): Promise<{ name: stri
         return [];
     }
 }
-export default class ShitPostCommand extends Command {
-
-
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+export default declareCommand({
+    async run(interaction: ChatInputCommandInteraction, config) {
         await interaction.deferReply();
         const fileName = interaction.options.getString('shitpost', true);
 
@@ -66,10 +63,8 @@ export default class ShitPostCommand extends Command {
                 });
             }
         }
-    }
-
-
-    async autoComplete(interaction: AutocompleteInteraction, config: Config, option: AutocompleteFocusedOption): Promise<void> {
+    },
+    async autoComplete(interaction: AutocompleteInteraction, config, option: AutocompleteFocusedOption): Promise<void> {
         const files = await getFilesInFolder(DOWNLOAD_FOLDER_PATH);
 
         const focusedValue = option.value.toLowerCase();
@@ -78,9 +73,9 @@ export default class ShitPostCommand extends Command {
         await interaction.respond(
             filteredFiles.slice(0, 25)
         );
-    }
-    dependsOn = []
-    slashCommand = new SlashCommandBuilder()
+    },
+    dependsOn: NO_EXTRA_CONFIG,
+    slashCommand: new SlashCommandBuilder()
         .setName("shitpost")
         .setDescription("shitpost with the posix file system!!!!!!").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
@@ -92,5 +87,5 @@ export default class ShitPostCommand extends Command {
             InteractionContextType.BotDM,
             InteractionContextType.Guild,
             InteractionContextType.PrivateChannel
-        ]);
-}
+        ]),
+})
