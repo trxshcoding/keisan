@@ -94,12 +94,13 @@ export default declareCommand({
                     if (!file.type.startsWith("image/")) {
                         continue;
                     }
+                    let img
                     images.addItems(
-                        new MediaGalleryItemBuilder()
+                        img = new MediaGalleryItemBuilder()
                             .setURL(file.url)
-                            .setDescription(file.comment)
                             .setSpoiler(file.isSensitive)
                     )
+                    if (file.comment) img.setDescription(file.comment)
                 }
                 mainComponent.addMediaGalleryComponents(
                     images,
