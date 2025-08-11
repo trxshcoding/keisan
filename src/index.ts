@@ -33,7 +33,7 @@ for (const file of fs.readdirSync(commandDir)) {
         const packagedCommand = tryPackageCommand(declaredCommand)
         allCommands.push(packagedCommand)
     } catch (e) {
-        throw new Error(`Could not instantiate command from ${file}`, { cause: e })
+        console.warn(`Could not instantiate command from ${file}`)
     }
 }
 const commands = allCommands.filter(it => 'slashCommand' in it);
