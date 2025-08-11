@@ -16,13 +16,11 @@ import {
     TextDisplayBuilder,
     ThumbnailBuilder
 } from "discord.js";
-import type { Config } from "../config.ts";
 import { trimWhitespace } from "../util.ts";
 import { declareCommand } from "../command.ts";
 import { z } from "zod";
-import {userInfo} from "node:os";
 
-const fediUserRegex = /@[^.@\s]+@(?:[^.@\s]+\.)+[^.@\s]+/
+const fediUserRegex = /(?:https?:\/\/(?<instanceLink>(?:[^.@\s]+\.)+[^.@\s]+)\/)?@(?<username>[^.@\s]+)(?:@(?<instance>(?:[^.@\s]+\.)+[^.@\s]+))?/
 
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config) {
@@ -30,7 +28,7 @@ export default declareCommand({
         const fedistring = interaction.options.getString("string")!
         if (!fediUserRegex.test(fedistring)) {
             //we're just gonna assume this is a note id
-            const { object:resp, type } = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
+            const { object: resp, type } = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${config.sharkeyToken}`,
@@ -45,12 +43,12 @@ export default declareCommand({
                 console.log(resp);
                 return;
             }
-            // console.log(resp)
             if (type !== "Note") {
                 await interaction.followUp({
                     content: "link type not implemented",
                     flags: [MessageFlags.Ephemeral]
                 })
+                return
             }
             let mainComponent
             const components: (TextDisplayBuilder | ContainerBuilder | ActionRowBuilder<MessageActionRowComponentBuilder>)[] = [
@@ -116,7 +114,17 @@ export default declareCommand({
             });
             return;
         }
-        const [user, host] = trimWhitespace(fedistring.split("@").splice(1))
+
+        const userMatch = fedistring.match(fediUserRegex)
+        if (!userMatch) {
+            await interaction.followUp({
+                content: "no idea what that is",
+                flags: [MessageFlags.Ephemeral]
+            })
+            return
+        }
+        const username = userMatch.groups!.username
+        const host = userMatch.groups!.instance || userMatch.groups!.instanceLink
 
         const resp = await fetch(`https://${config.sharkeyInstance}/api/users/show`, {
             method: 'POST',
@@ -124,7 +132,7 @@ export default declareCommand({
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                username: user,
+                username: username,
                 host: host,
             })
         }).then(res => res.json())
