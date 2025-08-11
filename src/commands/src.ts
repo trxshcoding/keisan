@@ -5,7 +5,7 @@ import {
     InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
-import { declareCommand } from "../command";
+import { declareCommand } from "../command.ts";
 import { z } from "zod";
 
 export default declareCommand({

@@ -16,10 +16,9 @@ import {
     TextDisplayBuilder,
     ThumbnailBuilder
 } from "discord.js";
-import type { Config } from "../config.ts";
-import { trimWhitespace } from "../util.ts";
-import { declareCommand } from "../command.ts";
-import { z } from "zod";
+import {trimWhitespace} from "../util.ts";
+import {declareCommand} from "../command.ts";
+import {z} from "zod";
 
 const fediUserRegex = /@[^.@\s]+@(?:[^.@\s]+\.)+[^.@\s]+/
 
@@ -27,22 +26,29 @@ export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config) {
         await interaction.deferReply();
         const fedistring = interaction.options.getString("string")!
-        if (!fediUserRegex.test(fedistring)) {
-            //we're just gonna assume this is a note id
-            const resp = await fetch(`https://${config.sharkeyInstance}/api/notes/show`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    noteId: fedistring,
-                })
-            }).then(res => res.json())
-            console.log(resp)
-            if ("error" in resp) {
-                await interaction.followUp(`nyaaaa 3:\n\`${resp.error.code}\``);
-                return;
-            }
+        let shit = fedistring;
+        if (fediUserRegex.test(fedistring) && !fedistring.startsWith("http")) {
+            const [user, host] = trimWhitespace(fedistring.split("@").splice(1))
+            //SURELY every instance has tls right?
+            shit = `https://${host}/@${user}`
+        }
+
+        const {object: resp, type} = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${config.sharkeyToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                uri: shit
+            })
+        }).then(res => res.json())
+        if ("error" in resp) {
+            await interaction.followUp(`nyaaaa 3:\n\`${resp.error.code}\``);
+            console.log(resp);
+            return;
+        }
+        if (type === "Note") {
             let mainComponent
             const components: (TextDisplayBuilder | ContainerBuilder | ActionRowBuilder<MessageActionRowComponentBuilder>)[] = [
                 mainComponent = new ContainerBuilder()
@@ -87,12 +93,13 @@ export default declareCommand({
                     if (!file.type.startsWith("image/")) {
                         continue;
                     }
+                    let img
                     images.addItems(
-                        new MediaGalleryItemBuilder()
+                        img = new MediaGalleryItemBuilder()
                             .setURL(file.url)
-                            .setDescription(file.comment)
                             .setSpoiler(file.isSensitive)
                     )
+                    if (file.comment) img.setDescription(file.comment)
                 }
                 mainComponent.addMediaGalleryComponents(
                     images,
@@ -106,61 +113,48 @@ export default declareCommand({
                 flags: [MessageFlags.IsComponentsV2],
             });
             return;
-        }
-        const userhost = trimWhitespace(fedistring.split("@").splice(1))
+        } else if (type === "User") {
+            const components = [
+                new ContainerBuilder()
+                    .addSectionComponents(
+                        new SectionBuilder()
+                            .setThumbnailAccessory(
+                                new ThumbnailBuilder()
+                                    .setURL(resp.avatarUrl)
+                            )
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(`## ${resp.name}`),
+                                //same as above. host is null when its the same as the api
+                                new TextDisplayBuilder().setContent(`@${resp.username}@${resp.host === null ? config.sharkeyInstance : resp.host}`),
+                            ),
+                    )
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(resp.description),
+                    ),
+                new ActionRowBuilder<MessageActionRowComponentBuilder>()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setStyle(ButtonStyle.Link)
+                            .setLabel("go to profile")
+                            /*
+                            the fucking `resp.url` is null when the host is the same as the api. who designed this???????
+                            thankfully since we're working with a sharkey api, we're ssure this is how the link is
+                            structured, so we can just make it the fuck up
+                            */
+                            .setURL(resp.url === null ? `https://${config.sharkeyInstance}/@${resp.username}` : resp.url),
+                    ),
+            ];
+            await interaction.followUp({
+                components,
+                flags: [MessageFlags.IsComponentsV2],
+            });
 
-        const resp = await fetch(`https://${config.sharkeyInstance}/api/users/show`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                username: userhost[0],
-                host: userhost[1],
-            })
-        }).then(res => res.json())
-
-        if ("error" in resp) {
-            await interaction.followUp(`nyaaaa 3:\n\`${resp.error.code}\``);
-            return;
         }
-        const components = [
-            new ContainerBuilder()
-                .addSectionComponents(
-                    new SectionBuilder()
-                        .setThumbnailAccessory(
-                            new ThumbnailBuilder()
-                                .setURL(resp.avatarUrl)
-                        )
-                        .addTextDisplayComponents(
-                            new TextDisplayBuilder().setContent(`## ${resp.name}`),
-                            //same as above. host is null when its the same as the api
-                            new TextDisplayBuilder().setContent(`@${resp.username}@${resp.host === null ? config.sharkeyInstance : resp.host}`),
-                        ),
-                )
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(resp.description),
-                ),
-            new ActionRowBuilder<MessageActionRowComponentBuilder>()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setStyle(ButtonStyle.Link)
-                        .setLabel("go to profile")
-                        /*
-                        the fucking `resp.url` is null when the host is the same as the api. who designed this???????
-                        thankfully since we're working with a sharkey api, we're ssure this is how the link is
-                        structured, so we can just make it the fuck up
-                        */
-                        .setURL(resp.url === null ? `https://${config.sharkeyInstance}/@${resp.username}` : resp.url),
-                ),
-        ];
-        await interaction.followUp({
-            components,
-            flags: [MessageFlags.IsComponentsV2],
-        });
+
     },
     dependsOn: z.object({
-        sharkeyInstance: z.string()
+        sharkeyInstance: z.string(),
+        sharkeyToken: z.string()
     }),
     slashCommand: new SlashCommandBuilder()
         .setName("fedilookup")
