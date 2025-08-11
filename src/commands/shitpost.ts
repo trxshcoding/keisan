@@ -7,8 +7,8 @@ import {
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "url";
-import { declareCommand } from "../command";
-import { NO_EXTRA_CONFIG } from "../config";
+import { declareCommand } from "../command.ts";
+import { NO_EXTRA_CONFIG } from "../config.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

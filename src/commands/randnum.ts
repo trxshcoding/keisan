@@ -4,8 +4,8 @@ import {
     InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
-import { declareCommand } from "../command";
-import { NO_EXTRA_CONFIG } from "../config";
+import { declareCommand } from "../command.ts";
+import { NO_EXTRA_CONFIG } from "../config.ts";
 
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config) {

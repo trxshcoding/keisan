@@ -20,6 +20,7 @@ import type { Config } from "../config.ts";
 import { trimWhitespace } from "../util.ts";
 import { declareCommand } from "../command.ts";
 import { z } from "zod";
+import {userInfo} from "node:os";
 
 const fediUserRegex = /@[^.@\s]+@(?:[^.@\s]+\.)+[^.@\s]+/
 
@@ -29,19 +30,27 @@ export default declareCommand({
         const fedistring = interaction.options.getString("string")!
         if (!fediUserRegex.test(fedistring)) {
             //we're just gonna assume this is a note id
-            const resp = await fetch(`https://${config.sharkeyInstance}/api/notes/show`, {
+            const { object:resp, type } = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
                 method: 'POST',
                 headers: {
+                    'Authorization': `Bearer ${config.sharkeyToken}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    noteId: fedistring,
+                    uri: fedistring
                 })
             }).then(res => res.json())
-            console.log(resp)
             if ("error" in resp) {
                 await interaction.followUp(`nyaaaa 3:\n\`${resp.error.code}\``);
+                console.log(resp);
                 return;
+            }
+            // console.log(resp)
+            if (type !== "Note") {
+                await interaction.followUp({
+                    content: "link type not implemented",
+                    flags: [MessageFlags.Ephemeral]
+                })
             }
             let mainComponent
             const components: (TextDisplayBuilder | ContainerBuilder | ActionRowBuilder<MessageActionRowComponentBuilder>)[] = [
@@ -107,7 +116,7 @@ export default declareCommand({
             });
             return;
         }
-        const userhost = trimWhitespace(fedistring.split("@").splice(1))
+        const [user, host] = trimWhitespace(fedistring.split("@").splice(1))
 
         const resp = await fetch(`https://${config.sharkeyInstance}/api/users/show`, {
             method: 'POST',
@@ -115,8 +124,8 @@ export default declareCommand({
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                username: userhost[0],
-                host: userhost[1],
+                username: user,
+                host: host,
             })
         }).then(res => res.json())
 
@@ -160,7 +169,8 @@ export default declareCommand({
         });
     },
     dependsOn: z.object({
-        sharkeyInstance: z.string()
+        sharkeyInstance: z.string(),
+        sharkeyToken: z.string()
     }),
     slashCommand: new SlashCommandBuilder()
         .setName("fedilookup")
