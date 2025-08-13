@@ -12,6 +12,7 @@ import { z } from "zod";
 import {NO_EXTRA_CONFIG} from "../config.ts";
 import {rm} from "fs/promises"
 import analyse from "linguist-js";
+import {getTop3Languages} from "../util.ts";
 export default declareCommand({
     async run(interaction, config) {
         await interaction.deferReply();
@@ -23,8 +24,9 @@ export default declareCommand({
         }
         const tmpobj = tmp.dirSync();
         const repo = git.Repository.clone(reponame, tmpobj.name)
-        console.log((await analyse(tmpobj.name)).languages.results)
-        await interaction.followUp("check console");
+        const resp = getTop3Languages(await analyse(tmpobj.name))
+
+        await interaction.followUp(`${resp[0].language} is the top language in this repo with ${resp[0].percentage}% code`);
         await rm(tmpobj.name, {recursive: true})
     },
     dependsOn: NO_EXTRA_CONFIG,
