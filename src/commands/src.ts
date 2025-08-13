@@ -31,13 +31,15 @@ export default declareCommand({
         )
         const topContributors = Object.entries(commits.reduce((obj, c) => {
             const name = c.author().name()!
-            if (obj[name]) obj[name]++
-            else obj[name] = 1
+            const email = c.author().email()!
+
+            if (obj[email]) obj[email].count++
+            else obj[email] = {name, count: 1}
             return obj
-        }, {} as Record<string, number>))
-            .sort((a, b) => b[1] - a[1])
+        }, {} as Record<string, {name: string, count: number}>))
+            .sort(([, a], [,b]) => b.count - a.count)
             .slice(0, 3)
-            .map(([name, count]) => `${name} with ${count} commits`)
+            .map(([, {name, count}]) => `${name} with ${count} commits`)
             .join(", ")
 
         await interaction.followUp(`## <${reponame}>
