@@ -1,7 +1,7 @@
-import {type Client, ModalBuilder, SlashCommandBuilder} from "discord.js";
-import type {Results} from "linguist-js/dist/types";
-import {number} from "zod";
-import {Canvas} from "canvas";
+import { type Client, ModalBuilder, SlashCommandBuilder } from "discord.js";
+import type { Results } from "linguist-js/dist/types";
+import { number } from "zod";
+import { Canvas } from "canvas";
 
 export function chunkArray<T>(
     array: T[],
@@ -109,7 +109,7 @@ export function imageBullshittery(username: string) {
     }
     return canvas.toBuffer("image/png");
 }
-function getRandomArrayMember(arr:any[]) {
+function getRandomArrayMember(arr: any[]) {
     if (arr.length === 0) {
         return null;
     }
@@ -118,7 +118,7 @@ function getRandomArrayMember(arr:any[]) {
 
     return arr[randomIndex];
 }
-function createRandomBullshit(length:number) {
+function createRandomBullshit(length: number) {
     let bullshit = ""
     const bullshitChars = 'qwertyuiopasdfghjklzxcvbnm1234567890'.split("")
     for (let i = 0; i <= length; i++) {
@@ -132,9 +132,24 @@ function createRandomBullshit(length:number) {
     return bullshit
 }
 
-export async function bufferToEmoji(buffer: Buffer, client:Client, name: string) {
+export async function getGithubAvatar(name: string, email: string) {
+    let username = ""
+    const isGithubEmail = email.match(/^(?:\d+\+)(.+?)@users\.noreply\.github\.com$/)
+    if (isGithubEmail) username = isGithubEmail[1]
+    else {
+        const res = await (await fetch(`https://api.github.com/search/users?q=${encodeURIComponent(name)}`)).json()
+        if (res?.items?.[0]) username = res.items[0].login
+        // note: there is a "score" property on the user which im assuming is related to how good of a match it is
+        // but i've also never seen it not be 1
+    }
+    if (username)
+        return Buffer.from(await (await fetch(`https://github.com/${username}.png`)).arrayBuffer())
+    else return imageBullshittery(name)
+}
+
+export async function bufferToEmoji(buffer: Buffer, client: Client) {
     return client.application!.emojis.create({
-        name: name.replaceAll(" ", "") + createRandomBullshit(7),
+        name: createRandomBullshit(12),
         attachment: buffer,
     })
 }
