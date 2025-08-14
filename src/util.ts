@@ -1,6 +1,7 @@
-import {ModalBuilder, SlashCommandBuilder} from "discord.js";
+import {type Client, ModalBuilder, SlashCommandBuilder} from "discord.js";
 import type {Results} from "linguist-js/dist/types";
 import {number} from "zod";
+import {Canvas} from "canvas";
 
 export function chunkArray<T>(
     array: T[],
@@ -60,7 +61,7 @@ export function getTop3Languages(result: Results) {
         ...v,
         language: k,
         percentage: Number((v.bytes / maxBytes * 100).toFixed(2)),
-    }))
+    })).filter(lang => lang.type === "programming")
     newArray.sort((a, b) => b.bytes - a.bytes)
     newArray.length = 3;
     return newArray
@@ -68,4 +69,72 @@ export function getTop3Languages(result: Results) {
 
 export function escapeMarkdown(content: string) {
     return content.replace(/([#*_~`|])/g, "\\$1")
+}
+
+export function imageBullshittery(username: string) {
+    const p = 2;
+    const canvas = new Canvas(p * 7, p * 7);
+    const context = canvas.getContext("2d");
+
+
+    const xorshift32 = (n: number) => {
+        n ^= n << 13;
+        n ^= n >>> 17;
+        n ^= n << 5;
+        return n;
+    };
+
+    const seedSteps = 28;
+
+    let seed = 1;
+    for (let i = seedSteps + username.length - 1; i >= seedSteps; i--) {
+        seed = xorshift32(seed);
+        seed += username.charCodeAt(i - seedSteps);
+    }
+
+    context.fillStyle =
+        "#" + ((seed >> 8) & 0xffffff).toString(16).padStart(0, "6");
+
+    for (let i = seedSteps - 1; i > 0; i--) {
+        // continue the seed
+        seed = xorshift32(seed);
+
+        const X = i & 3;
+        const Y = i >> 2;
+
+        if (seed >>> (seedSteps + 1) > (X * X) / 3 + Y / 2) {
+            context.fillRect(p * 3 + p * X, p * Y, p, p);
+            context.fillRect(p * 3 - p * X, p * Y, p, p);
+        }
+    }
+    return canvas.toBuffer("image/png");
+}
+function getRandomArrayMember(arr:any[]) {
+    if (arr.length === 0) {
+        return null;
+    }
+
+    const randomIndex = Math.floor(Math.random() * arr.length);
+
+    return arr[randomIndex];
+}
+function createRandomBullshit(length:number) {
+    let bullshit = ""
+    const bullshitChars = 'qwertyuiopasdfghjklzxcvbnm1234567890'.split("")
+    for (let i = 0; i <= length; i++) {
+        let temp = getRandomArrayMember(bullshitChars)
+        if (Math.random() > 0.5) {
+            bullshit += temp.toUpperCase()
+        } else {
+            bullshit += temp
+        }
+    }
+    return bullshit
+}
+
+export async function bufferToEmoji(buffer: Buffer, client:Client, name: string) {
+    return client.application!.emojis.create({
+        name: name.replaceAll(" ", "") + createRandomBullshit(7),
+        attachment: buffer,
+    })
 }
