@@ -50,13 +50,16 @@ export default declareCommand({
         const topContributorList = topContributors
             .map(([, { name, count }], i) => `${emojis[i]} ${name} with ${count} commits`)
             .join(", ")
-
-        await interaction.followUp(`## <${repoName}>
+        let response = `## <${repoName}>
 ${commits.length} commits
 Top contributors: ${topContributorList}
 Last commit was <t:${commits[0].time().getTime() / 1000}>
-First commit was <t:${commits.at(-1)!.time().getTime() / 1000}>
-${resp[0].language} is the top language in this repo with ${resp[0].percentage}% code`);
+First commit was <t:${commits.at(-1)!.time().getTime() / 1000}>`
+
+        if (resp[0]){
+            response += `\n${resp[0].language} is the top language in this repo with ${resp[0].percentage}% code`
+        }
+        await interaction.followUp(response);
         await rm(tmpobj.name, { recursive: true })
         emojis.forEach(a => {
             a.delete();
