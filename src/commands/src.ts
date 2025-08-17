@@ -5,30 +5,67 @@ import {
     InteractionContextType,
     SlashCommandBuilder
 } from "discord.js";
+import * as tmp from 'tmp'
+import * as git from '@napi-rs/simple-git'
 import { declareCommand } from "../command.ts";
-import { z } from "zod";
+import { NO_EXTRA_CONFIG } from "../config.ts";
+import { rm } from "fs/promises"
+import analyse from "linguist-js";
+import { bufferToEmoji, getGithubAvatar, getTop3Languages, imageBullshittery } from "../util.ts";
 
 export default declareCommand({
     async run(interaction, config) {
-        const repo = interaction.options.getString("repo")
-        const meow = await fetch(config.gitapi! + repo).then(res => res.json());
-        const embed = new EmbedBuilder()
-            .setAuthor({
-                name: meow.name,
-            })
-            .setTitle(meow.description)
-            .setImage(meow.owner.avatar_url);
-        const nya = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setURL(meow.html_url).setLabel("link").setStyle(ButtonStyle.Link))
-        await interaction.reply({
-            components: [
-                nya
-            ],
-            embeds: [embed],
-        });
+        await interaction.deferReply();
+        let repoName = interaction.options.getString("repo", true)
+        try {
+            new URL(repoName);
+        } catch {
+            repoName = new URL(repoName, "https://github.com/").toString();
+        }
+        const tmpobj = tmp.dirSync();
+        const repo = git.Repository.clone(repoName, tmpobj.name)
+        const resp = getTop3Languages(await analyse(tmpobj.name))
+
+        const commits = [...repo.revWalk().setSorting(git.Sort.Time).push(repo.head().target()!)].map(
+            c => repo.findCommit(c)!
+        )
+        const topContributors = Object.entries(commits.reduce((obj, c) => {
+            const name = c.author().name()!
+            const email = c.author().email()!
+
+            if (obj[email]) obj[email].count++
+            else obj[email] = { name, count: 1 }
+            return obj
+        }, {} as Record<string, { name: string, count: number }>))
+            .sort(([, a], [, b]) => b.count - a.count)
+            .slice(0, 3)
+        const emojiPromises = topContributors.map(async ([email, { name }]) => {
+            let avatar: Buffer
+            if (repoName.startsWith("https://github.com"))
+                avatar = await getGithubAvatar(name, email)
+            else avatar = imageBullshittery(name)
+            return await bufferToEmoji(avatar, interaction.client)
+        })
+        const emojis = await Promise.all(emojiPromises)
+        const topContributorList = topContributors
+            .map(([, { name, count }], i) => `${emojis[i]} ${name} with ${count} commits`)
+            .join(", ")
+        let response = `## <${repoName}>
+${commits.length} commits
+Top contributors: ${topContributorList}
+Last commit was <t:${commits[0].time().getTime() / 1000}>
+First commit was <t:${commits.at(-1)!.time().getTime() / 1000}>`
+
+        if (resp[0]){
+            response += `\n${resp[0].language} is the top language in this repo with ${resp[0].percentage}% code`
+        }
+        await interaction.followUp(response);
+        await rm(tmpobj.name, { recursive: true })
+        emojis.forEach(a => {
+            a.delete();
+        })
     },
-    dependsOn: z.object({
-        gitapi: z.string(),
-    }),
+    dependsOn: NO_EXTRA_CONFIG,
     slashCommand: new SlashCommandBuilder()
         .setName("src")
         .setDescription("get src of shit").setIntegrationTypes([
