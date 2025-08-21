@@ -49,18 +49,20 @@ export default declareCommand({
             const track = (iTunesInfo.find((res: any) => res.trackName === search)
                 || iTunesInfo.find((res: any) => res.trackName.toLowerCase() === search.toLowerCase())
                 || iTunesInfo[0])
+            if (!track) {
+                await interaction.followUp("couldn't find that")
+                return
+            }
             link = track.trackViewUrl
-            albumName = track.collectionName
+            albumName = track.collectionName.replace(/ - (?:Single|EP)$/, "") === track.trackName ? "" : track.collectionName
         }
 
-        let preferredApi, songlink, isCached = false
-        if (musicCache[link]) {
-            preferredApi = musicCache[link].preferredApi
-            songlink = musicCache[link].songlink
-            isCached = true
-        } else {
-            songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
-            preferredApi = getSongOnPreferredProvider(songlink, link)!
+        let preferredApi, songlink
+        songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
+        preferredApi = getSongOnPreferredProvider(songlink, link)!
+        musicCache[songlink.pageUrl] ??= {
+            preferredApi,
+            songlink
         }
 
         if (lobotomized) {
@@ -75,7 +77,7 @@ export default declareCommand({
                         new ButtonBuilder()
                             .setStyle(ButtonStyle.Secondary)
                             .setLabel("expand")
-                            .setCustomId(link),
+                            .setCustomId(songlink.pageUrl),
                     ),
             ];
             await interaction.followUp({

@@ -85,23 +85,17 @@ export default declareCommand({
             }
 
             if (!link) useSonglink = false
-            let preferredApi, songlink, isCached = false
-            if (link && musicCache[link]) {
-                preferredApi = musicCache[link].preferredApi
-                songlink = musicCache[link].songlink
-                isCached = true
-            } else if (useSonglink) {
+            let preferredApi, songlink
+            if (useSonglink) {
                 songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
                 preferredApi = getSongOnPreferredProvider(songlink, link!)
             }
 
             if (preferredApi && useSonglink && link) {
-                if (!isCached) musicCache[link] ??= {
+                musicCache[songlink.pageUrl] ??= {
                     preferredApi,
                     songlink
                 }
-                if (link.length > 100)
-                    musicCache[link].hash = hash("md5", link)
 
                 if (lobotomized) {
                     const emoji = await interaction.client.application.emojis.create({
@@ -115,12 +109,13 @@ export default declareCommand({
                                 new ButtonBuilder()
                                     .setStyle(ButtonStyle.Secondary)
                                     .setLabel("expand")
-                                    .setCustomId(musicCache[link].hash || link),
+                                    .setCustomId(songlink.pageUrl),
                             ),
                     ];
+                    const albumName = nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "") === nowPlaying.songName ? "" : nowPlaying.albumName
                     await interaction.followUp({
                         content: `### ${escapeMarkdown(preferredApi.title)} ${emoji}
--# by ${escapeMarkdown(preferredApi.artist)}${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}`,
+-# by ${escapeMarkdown(preferredApi.artist)}${albumName ? ` - from ${escapeMarkdown(albumName)}` : ""}`,
                         components,
                     })
                     // we don't have infinite emoji slots
@@ -135,9 +130,9 @@ export default declareCommand({
             } else {
                 const embedFallback = new EmbedBuilder()
                     .setAuthor({
-                        name: escapeMarkdown(nowPlaying.artistName)
+                        name: nowPlaying.artistName
                     })
-                    .setTitle(escapeMarkdown(nowPlaying.songName))
+                    .setTitle(nowPlaying.songName)
                     .setFooter({
                         text: "song.link proxying was turned off or failed - amy jr",
                     });
