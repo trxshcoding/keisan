@@ -23,6 +23,7 @@ import { createCanvas, loadImage, registerFont } from "canvas";
 import path from "node:path";
 import { fileURLToPath } from "url";
 import { declareCommand } from "../command.ts";
+import sharp from "sharp";
 
 export default declareCommand({
     targetType: ApplicationCommandType.Message,
@@ -65,7 +66,9 @@ export default declareCommand({
             return;
         }
         const imageUrl = imagecache[interaction.customId.replaceAll("CC:caption|", "")]
-        const image = await loadImage(imageUrl);
+        const avatarResponse = await fetch(imageUrl!)
+        const image = await loadImage(await sharp(Buffer.from(await avatarResponse.arrayBuffer())).png().toBuffer());
+
 
         const width = image.width;
         const height = Math.max(image.height * 1.2, image.width / 2)
