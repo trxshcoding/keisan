@@ -16,7 +16,8 @@ datasource db {
 }
 
 model Shitpost {
-  name    String  @id
+  id      Int     @id @default(autoincrement())
+  name    String
   content Bytes
   User    User?   @relation(fields: [userId], references: [id])
   userId  String?
