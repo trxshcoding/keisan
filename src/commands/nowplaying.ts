@@ -12,9 +12,35 @@ import {
 
 import { getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache, songView } from "../music.ts"
 import { hash } from "crypto"
-import { escapeMarkdown } from "../util.ts";
+import { AmyodalBuilder, escapeMarkdown } from "../util.ts";
 import { declareCommand } from "../command.ts";
 import { z } from "zod";
+
+const slashCommand = new SlashCommandBuilder()
+    .setName("nowplaying")
+    .setDescription("balls").setIntegrationTypes([
+        ApplicationIntegrationType.UserInstall
+    ])
+    .addBooleanOption(option => {
+        return option.setName("lobotomized").setDescription("smol").setRequired(false);
+    })
+    .addBooleanOption(option => {
+        return option.setName("usesonglink").setDescription("use songlink or not").setRequired(false)
+    })
+    .addBooleanOption(option => {
+        return option.setName("uselastfm").setDescription("use last.fm or not").setRequired(false)
+    })
+    .addBooleanOption(option => {
+        return option.setName("useitunes").setDescription("use itunes or not").setRequired(false)
+    })
+    .addStringOption(option => {
+        return option.setName("user").setDescription("username").setRequired(false)
+    })
+    .setContexts([
+        InteractionContextType.BotDM,
+        InteractionContextType.Guild,
+        InteractionContextType.PrivateChannel
+    ])
 
 async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<{
     songName: string, artistName: string, albumName?: string, link?: string
@@ -53,9 +79,37 @@ async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<{
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config): Promise<void> {
         await interaction.deferReply()
-        const user = interaction.options.getString("user") ?? config.musicAccount!;
+        const entry = await config.prisma.user.findFirst({
+            where: { id: interaction.user.id }
+        })
+        let user = interaction.options.getString("user");
+        let useLastFM = interaction.options.getBoolean("uselastfm")
+        if (!entry?.musicUsername) {
+            if (!user || !useLastFM) {
+                await interaction.followUp({
+                    content: "You don't have a music account saved, enter one to automatically store it"
+                })
+                return
+            }
+            await config.prisma.user.upsert({
+                where: { id: interaction.user.id },
+                create: {
+                    id: interaction.user.id,
+                    musicUsername: user,
+                    musicUsesListenbrainz: !useLastFM,
+                    shitposts: {}
+                },
+                update: {
+                    musicUsername: user,
+                    musicUsesListenbrainz: !useLastFM
+                }
+            })
+        } else {
+            user = entry.musicUsername
+            useLastFM = !entry.musicUsesListenbrainz
+        }
+
         const lobotomized = interaction.options.getBoolean("lobotomized") ?? config.commandDefaults.nowplaying.lobotomized;
-        const useLastFM = interaction.options.getBoolean("uselastfm") ?? config.commandDefaults.nowplaying.useLastFM
         let useSonglink = interaction.options.getBoolean("usesonglink") ?? config.commandDefaults.nowplaying.useSonglink
         const useiTunes = interaction.options.getBoolean("useitunes") ?? config.commandDefaults.nowplaying.useItunes
 
@@ -148,29 +202,5 @@ export default declareCommand({
         musicAccount: z.string(),
         lastFMApiKey: z.string()
     }),
-    slashCommand: new SlashCommandBuilder()
-        .setName("nowplaying")
-        .setDescription("balls").setIntegrationTypes([
-            ApplicationIntegrationType.UserInstall
-        ])
-        .addBooleanOption(option => {
-            return option.setName("lobotomized").setDescription("smol").setRequired(false);
-        })
-        .addBooleanOption(option => {
-            return option.setName("usesonglink").setDescription("use songlink or not").setRequired(false)
-        })
-        .addBooleanOption(option => {
-            return option.setName("uselastfm").setDescription("use last.fm or not").setRequired(false)
-        })
-        .addBooleanOption(option => {
-            return option.setName("useitunes").setDescription("use itunes or not").setRequired(false)
-        })
-        .addStringOption(option => {
-            return option.setName("user").setDescription("username").setRequired(false)
-        })
-        .setContexts([
-            InteractionContextType.BotDM,
-            InteractionContextType.Guild,
-            InteractionContextType.PrivateChannel
-        ]),
+    slashCommand
 })
