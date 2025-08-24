@@ -15,4 +15,3 @@ src/generated
 .vscode/*
 amyjr.db*
 .DS_Store
-prisma/migrations
