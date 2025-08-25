@@ -22,6 +22,7 @@ export default declareCommand({
             .setName('AddToShitposts')
             .setType(ApplicationCommandType.Message),
     async run(interaction: ContextMenuCommandInteraction, target: Message, config: Config): Promise<void> {
+        await interaction.deferReply()
         for (const [_, attachment] of target.attachments) {
             const response = await fetch(attachment.url);
 

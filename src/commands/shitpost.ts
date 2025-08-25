@@ -13,29 +13,6 @@ import { NO_EXTRA_CONFIG } from "../config.ts";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const DOWNLOAD_FOLDER_PATH = path.join(__dirname, '..', '..', 'shitposts');
-export async function getFilesInFolder(folderPath: string): Promise<{ name: string, value: string }[]> {
-    try {
-        const files = await fs.readdir(folderPath);
-        const fileList: { name: string, value: string }[] = [];
-
-        for (const file of files) {
-            const filePath = path.join(folderPath, file);
-            const stats = await fs.stat(filePath);
-
-            if (stats.isFile()) {
-                fileList.push({
-                    name: file,
-                    value: file
-                });
-            }
-        }
-        return fileList;
-    } catch (error) {
-        console.error(`Error reading directory ${folderPath}:`, error);
-        return [];
-    }
-}
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config) {
         await interaction.deferReply();
@@ -83,7 +60,6 @@ export default declareCommand({
                     value: a.name
                 }
             });
-
         await interaction.respond(
             filteredFiles,
         );
