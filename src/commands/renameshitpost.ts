@@ -1,11 +1,10 @@
 import {
     ApplicationIntegrationType, type AutocompleteFocusedOption, AutocompleteInteraction,
     ChatInputCommandInteraction,
-    InteractionContextType,
+    InteractionContextType, MessageFlags,
     SlashCommandBuilder
 } from "discord.js";
 import { config, NO_EXTRA_CONFIG, type Config } from "../config.ts";
-import { DOWNLOAD_FOLDER_PATH, getFilesInFolder } from "./shitpost.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { declareCommand } from "../command.ts";
@@ -16,19 +15,57 @@ export default declareCommand({
         await interaction.deferReply();
         const originalname = interaction.options.getString("originalname")!;
         const newname = interaction.options.getString("newname")!;
-
-        fs.renameSync(path.join(DOWNLOAD_FOLDER_PATH, originalname), path.join(DOWNLOAD_FOLDER_PATH, newname));
-        await interaction.followUp("shitpost renamed.")
+        const shitpostWeWannaChange = await config.prisma.shitpost.findFirst({
+            where:{
+                name: originalname
+            }
+        })
+        if (shitpostWeWannaChange === null) {
+            await interaction.followUp({
+                content: "shitpost not found",
+                flags: [MessageFlags.Ephemeral]
+            })
+            return;
+        }
+        await config.prisma.shitpost.update({
+            where: {
+                id: shitpostWeWannaChange.id
+            },
+            data: {
+                name: newname
+            }
+        })
+        await interaction.followUp({
+            content: "shitpost renamed",
+            flags: [MessageFlags.Ephemeral]
+        })
     },
     async autoComplete(interaction: AutocompleteInteraction, config, option: AutocompleteFocusedOption): Promise<void> {
         if (option.name === 'originalname') {
-            const files = await getFilesInFolder(DOWNLOAD_FOLDER_PATH);
-
             const focusedValue = option.value.toLowerCase();
-            const filteredFiles = files.filter(choice => choice.name.toLowerCase().includes(focusedValue));
+            const user = (await config.prisma.user.findFirst({
+                where: {
+                    id: interaction.user.id
+                },
+                include: {
+                    shitposts: true
+                }
+            }));
+            if (!user) {
+                return;
+            }
+            const posts = user.shitposts
+            const filteredFiles = posts
+                .filter(choice => choice.name.toLowerCase().includes(focusedValue))
+                .map(a=> {
+                    return {
+                        name: a.name,
+                        value: a.name
+                    }
+                });
 
             await interaction.respond(
-                filteredFiles.slice(0, 25)
+                filteredFiles,
             );
         }
     },

@@ -22,24 +22,7 @@ export default declareCommand({
             .setName('AddToShitposts')
             .setType(ApplicationCommandType.Message),
     async run(interaction: ContextMenuCommandInteraction, target: Message, config: Config): Promise<void> {
-        await interaction.deferReply();
-        await interaction.followUp({ content: "uploading..." });
-
-        const downloadFolderPath = path.join(__dirname, '..', '..', 'shitposts');
-
-        try {
-            await fs.mkdir(downloadFolderPath, { recursive: true });
-        } catch (error) {
-            console.error("Error creating download folder:", error);
-            await interaction.editReply({ content: "the fucking posix file system failed me (download foler couldnt be made)" });
-            return;
-        }
-
-        if (target.attachments.size === 0) {
-            await interaction.editReply({ content: "there is no shit for me to post" });
-            return;
-        }
-
+        await interaction.deferReply()
         for (const [_, attachment] of target.attachments) {
             const response = await fetch(attachment.url);
 
@@ -48,13 +31,30 @@ export default declareCommand({
                 return;
             }
 
-            const buffer = await response.arrayBuffer();
+            const buffer = Buffer.from(await response.arrayBuffer());
             const fileName = attachment.name || `attachment_${attachment.id}`;
-            const filePath = path.join(downloadFolderPath, fileName);
 
             try {
-                await fs.writeFile(filePath, Buffer.from(buffer));
-                console.log(`Downloaded: ${fileName}`);
+                await config.prisma.user.upsert({
+                    where: { id: interaction.user.id },
+                    create: {
+                        id: interaction.user.id,
+                        shitposts: {
+                            create: {
+                                name: attachment.name,
+                                content: buffer
+                            }
+                        }
+                    },
+                    update: {
+                        shitposts: {
+                            create: {
+                                name: attachment.name,
+                                content: buffer
+                            }
+                        }
+                    }
+                })
             } catch (error) {
                 console.error(`Error downloading ${fileName}:`, error);
                 await interaction.editReply({ content: `Failed to download ${fileName}.` });

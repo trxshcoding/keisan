@@ -12,10 +12,20 @@ generator client {
 datasource db {
   // TODO: look at https://www.prisma.io/docs/orm/overview/databases/sqlite#using-the-better-sqlite3-driver
   provider = "sqlite"
-  url      = "file:../amyjr.db"
+  url      = "file:./amyjr.db"
 }
 
-model UwuingCount {
-  discordId Int @id
-  uwuCount  Int
+model Shitpost {
+  id      Int     @id @default(autoincrement())
+  name    String
+  content Bytes
+  User    User?   @relation(fields: [userId], references: [id])
+  userId  String?
+}
+
+model User {
+  id                    String     @id
+  musicUsername         String?
+  musicUsesListenbrainz Boolean?
+  shitposts             Shitpost[]
 }
