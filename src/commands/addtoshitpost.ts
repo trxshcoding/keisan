@@ -2,7 +2,7 @@ import {
     ApplicationCommandType, type Attachment,
     ContextMenuCommandBuilder,
     ContextMenuCommandInteraction,
-    Message
+    Message, MessageFlags
 } from "discord.js";
 import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 import fs from "node:fs/promises";
@@ -22,7 +22,7 @@ export default declareCommand({
             .setName('AddToShitposts')
             .setType(ApplicationCommandType.Message),
     async run(interaction: ContextMenuCommandInteraction, target: Message, config: Config): Promise<void> {
-        await interaction.deferReply()
+        await interaction.deferReply({flags: [MessageFlags.Ephemeral]})
         for (const [_, attachment] of target.attachments) {
             const response = await fetch(attachment.url);
 
