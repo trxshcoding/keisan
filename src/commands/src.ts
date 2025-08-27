@@ -15,6 +15,7 @@ import { bufferToEmoji, getGithubAvatar, getTop3Languages, imageBullshittery } f
 
 export default declareCommand({
     async run(interaction, config) {
+        const COMMIT_LIMIT = 25000;
         await interaction.deferReply();
         let repoName = interaction.options.getString("repo", true)
         try {
@@ -26,9 +27,25 @@ export default declareCommand({
         const repo = git.Repository.clone(repoName, tmpobj.name)
         const resp = getTop3Languages(await analyse(tmpobj.name))
 
-        const commits = [...repo.revWalk().setSorting(git.Sort.Time).push(repo.head().target()!)].map(
-            c => repo.findCommit(c)!
-        )
+        const revwalk = repo.revWalk();
+        revwalk.setSorting(git.Sort.Time);
+        revwalk.push(repo.head().target()!);
+
+        const commits = [];
+        let count = 0;
+
+        for (const oid of revwalk) {
+            count++;
+
+            if (count > COMMIT_LIMIT) {
+                await interaction.followUp("this repository is too big.")
+                await rm(tmpobj.name, { recursive: true })
+                return
+            }
+
+            commits.push(repo.findCommit(oid)!);
+        }
+
         const topContributors = Object.entries(commits.reduce((obj, c) => {
             const name = c.author().name()!
             const email = c.author().email()!

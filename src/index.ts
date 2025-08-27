@@ -52,11 +52,17 @@ function makeDefaultAvailableEverywhere<T extends { setContexts(...contexts: Arr
         t.setContexts(InteractionContextType.BotDM, InteractionContextType.Guild, InteractionContextType.PrivateChannel)
     return t
 }
-
-function replyWithError(interaction: Exclude<Interaction, AutocompleteInteraction>) {
-    interaction.deferred || interaction.replied
-        ? interaction.followUp("something sharted itself")
-        : interaction.reply("something sharted itself")
+//`e` is unknown so idfk what im supposed to put as the type here?
+function replyWithError(interaction: Exclude<Interaction, AutocompleteInteraction>, e: any) {
+    if (e.toString()?.includes("Missing Permissions")){
+        interaction.deferred || interaction.replied
+            ? interaction.followUp("missing permissions")
+            : interaction.reply("missing permissions")
+    } else {
+        interaction.deferred || interaction.replied
+            ? interaction.followUp("something sharted itself")
+            : interaction.reply("something sharted itself")
+    }
 }
 
 client.once(Events.ClientReady, async () => {
@@ -87,7 +93,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await command.run(interaction, interaction.isUserContextMenuCommand() ? interaction.targetUser : interaction.targetMessage, Object.assign({}, config, command.storedConfig))
     } catch (e) {
         console.error("error during context command execution: " + commandName, e)
-        replyWithError(interaction)
+        replyWithError(interaction, e)
     }
 });
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -103,7 +109,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await command.modal?.(interaction, Object.assign({}, config, command.storedConfig));
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
-        replyWithError(interaction)
+        replyWithError(interaction, e)
     }
 })
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -121,7 +127,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await command.run(interaction, Object.assign({}, config, command.storedConfig));
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
-        replyWithError(interaction)
+        replyWithError(interaction, e)
     }
 
 })
@@ -156,7 +162,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await command.button?.(interaction, Object.assign({}, config, command.storedConfig));
     } catch (e) {
         console.error("error during command execution: " + commandName, e)
-        replyWithError(interaction)
+        replyWithError(interaction, e)
     }
 })
 
