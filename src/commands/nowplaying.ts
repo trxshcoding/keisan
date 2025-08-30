@@ -83,15 +83,23 @@ export default declareCommand({
             where: { id: interaction.user.id }
         })
         let user = interaction.options.getString("user");
-        let useLastFM = interaction.options.getBoolean("uselastfm")
+        let useLastFM = interaction.options.getBoolean("uselastfm");
+
+        if (entry?.musicUsername) {
+            user ??= entry.musicUsername;
+            useLastFM ??= !entry.musicUsesListenbrainz;
+        }
+
+        if (user === null || useLastFM === null) {
+            await interaction.followUp({
+                content: "You don't have a music account saved. Please provide one using the `user` and `uselastfm` options to save it.",
+                flags: [MessageFlags.Ephemeral]
+            })
+            return
+        }
+
+
         if (!entry?.musicUsername) {
-            if (user === null || useLastFM === null) {
-                await interaction.followUp({
-                    content: "You don't have a music account saved, enter one to automatically store it (run the same command with the arguments `user` and `uselastfm` set",
-                    flags: [MessageFlags.Ephemeral]
-                })
-                return
-            }
             await config.prisma.user.upsert({
                 where: { id: interaction.user.id },
                 create: {
@@ -105,9 +113,6 @@ export default declareCommand({
                     musicUsesListenbrainz: !useLastFM
                 }
             })
-        } else {
-            user = entry.musicUsername
-            useLastFM = !entry.musicUsesListenbrainz
         }
 
         const lobotomized = interaction.options.getBoolean("lobotomized") ?? config.commandDefaults.nowplaying.lobotomized;
