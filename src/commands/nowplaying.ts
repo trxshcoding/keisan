@@ -92,27 +92,10 @@ export default declareCommand({
 
         if (user === null || useLastFM === null) {
             await interaction.followUp({
-                content: "You don't have a music account saved. Please provide one using the `user` and `uselastfm` options to save it.",
+                content: "You don't have a music account saved. Use the `/config nowplaying` command to save them, or specify them as arguments to only use once",
                 flags: [MessageFlags.Ephemeral]
             })
             return
-        }
-
-
-        if (!entry?.musicUsername) {
-            await config.prisma.user.upsert({
-                where: { id: interaction.user.id },
-                create: {
-                    id: interaction.user.id,
-                    musicUsername: user,
-                    musicUsesListenbrainz: !useLastFM,
-                    shitposts: {}
-                },
-                update: {
-                    musicUsername: user,
-                    musicUsesListenbrainz: !useLastFM
-                }
-            })
         }
 
         const lobotomized = interaction.options.getBoolean("lobotomized") ?? config.commandDefaults.nowplaying.lobotomized;
