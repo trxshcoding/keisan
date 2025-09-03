@@ -188,7 +188,6 @@ export default declareCommand({
     },
     button: lobotomizedSongButton,
     dependsOn: z.object({
-        musicAccount: z.string(),
         lastFMApiKey: z.string()
     }),
     slashCommand

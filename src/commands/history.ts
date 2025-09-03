@@ -193,7 +193,6 @@ export default declareCommand({
     },
 
     dependsOn: z.object({
-        musicAccount: z.string(),
         lastFMApiKey: z.string()
     }),
     slashCommand: new SlashCommandBuilder()
