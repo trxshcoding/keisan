@@ -6,7 +6,6 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.808.0",
-    "@napi-rs/simple-git": "^0.1.21",
     "@prisma/client": "^6.12.0",
     "@types/node": "^22.14.0",
     "@types/tmp": "^0.2.6",
@@ -14,6 +13,7 @@
     "astring": "^1.9.0",
     "canvas": "^3.1.0",
     "discord.js": "^14.19.3",
+    "isomorphic-git": "^1.33.1",
     "linguist-js": "^2.9.2",
     "sharp": "git+ssh://git@github.com/lovell/sharp.git",
     "tmp": "^0.2.5",
