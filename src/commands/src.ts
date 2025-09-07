@@ -70,7 +70,7 @@ First commit was <t:${commits.at(-1)!.commit.author.timestamp}>
 `
         for (const i of resp) {
             if (i.percentage < 1.0) continue
-            const amount = Math.round(i.percentage / 10) / 2;
+            const amount = Math.round((i.percentage / 10) * 2) / 2;
             const fullBlocks = Math.floor(amount);
             const halfBlock = amount % 1 !== 0;
             let bar = "■".repeat(fullBlocks);
