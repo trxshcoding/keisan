@@ -144,7 +144,6 @@ export default declareCommand({
             return interaction.followUp({
                 content: `### ${escapeMarkdown(nowPlaying.songName)}
 -# by ${escapeMarkdown(nowPlaying.artistName)}${albumName ? ` - from ${escapeMarkdown(albumName)}` : ""}
-
 -# couldn't get more info about this song`
             })
         }
