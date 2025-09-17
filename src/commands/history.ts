@@ -12,9 +12,9 @@ import {
     TextDisplayBuilder,
     type MessageActionRowComponentBuilder
 } from "discord.js";
-import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 import { z } from "zod";
 import { getSongOnPreferredProvider, itunesResponseShape, musicCache, songView } from "../music.ts";
+import { escapeMarkdown } from "../util.ts";
 
 
 type HistoryItem = {
@@ -43,7 +43,7 @@ async function getHistory(username: string, lastFMApiKey?: string): Promise<Hist
                 songName: t.name,
                 artistName: t.artist["#text"],
                 albumName: t.album["#text"]
-            })) || []
+            }))
         }
     }
 }
@@ -51,8 +51,8 @@ async function getHistory(username: string, lastFMApiKey?: string): Promise<Hist
 const songEmbed = (h: HistoryItem[], pos: number, username: string, useLastFM: boolean) =>
     new ContainerBuilder()
         .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(`### ${h[pos].songName}
--# by ${h[pos].artistName}`),
+            new TextDisplayBuilder().setContent(`### ${escapeMarkdown(h[pos].songName)}
+-# by ${escapeMarkdown(h[pos].artistName)}${h[pos].albumName ? ` - from ${escapeMarkdown(h[pos].albumName)}` : ""}`),
         )
         .addActionRowComponents(
             new ActionRowBuilder<MessageActionRowComponentBuilder>()
@@ -99,7 +99,7 @@ export default declareCommand({
 
         if (user === null || useLastFM === null) {
             await interaction.followUp({
-                content: "You don't have a music account saved. Use the `/config nowplaying` command to save them, or specify them as arguments to only use once",
+                content: "you don't have a music account saved. use the `/config nowplaying` command to save them, or specify them as arguments to only use once",
                 flags: [MessageFlags.Ephemeral]
             })
             return
@@ -108,7 +108,7 @@ export default declareCommand({
         const history = await getHistory(user, useLastFM ? config.lastFMApiKey : undefined)
         if (!history || history.length === 0) {
             await interaction.followUp({
-                content: "That user hasn't listened to anything lately",
+                content: "that user hasn't listened to anything lately",
                 flags: [MessageFlags.Ephemeral]
             })
             return
@@ -170,7 +170,7 @@ export default declareCommand({
                 }
                 if (!link) {
                     await interaction.followUp({
-                        content: "Couldn't find a link for that song, sorry",
+                        content: "couldn't find a link for that song, sorry",
                         flags: [MessageFlags.Ephemeral]
                     })
                     return

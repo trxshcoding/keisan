@@ -32,7 +32,7 @@ export default declareCommand({
         const memoryUsage = Object.values(mem).reduce((a, b) => a + b, 0)
 
         await interaction.reply({
-            content: `amy jr - stats
+            content: `keisan - stats
 uptime: ${toHumanReadableTime(process.uptime())}
 memory: ${Math.floor(memoryUsage / 1024 / 1024)} mb
 node: \`${process.versions.node}\`, discord.js: \`${packageJson.dependencies["discord.js"].replace(/[^\d\.]/g, "")}\``,
