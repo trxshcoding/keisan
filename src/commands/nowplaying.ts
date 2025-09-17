@@ -78,7 +78,6 @@ export default declareCommand({
         let useLastFM: boolean | null;
 
         if (otherUser) {
-            console.log(otherUser)
             const entry = await config.prisma.user.findFirst({
                 where: { id: otherUser.id }
             });
