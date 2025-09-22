@@ -13,7 +13,6 @@ import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config: Config) {
-        await interaction.deferReply()
         const command = interaction.options.getSubcommand(true)
         switch (command) {
             case "nowplaying": {
@@ -34,14 +33,14 @@ export default declareCommand({
                     }
                 })
 
-                await interaction.followUp({
+                await interaction.reply({
                     content: "Updated your info",
                     flags: [MessageFlags.Ephemeral]
                 })
                 break
             }
             default: {
-                await interaction.followUp({
+                await interaction.reply({
                     content: "what",
                     flags: [MessageFlags.Ephemeral]
                 })
