@@ -139,6 +139,10 @@ export default declareCommand({
         switch (customId) {
             case "back":
             case "forward": {
+                if (interaction.user.id !== interaction.message.interactionMetadata?.user.id) {
+                    await interaction.deferUpdate()
+                    return
+                }
                 await interaction.update({
                     components: [
                         songEmbed(history, pos, username, platform === "lastfm")
