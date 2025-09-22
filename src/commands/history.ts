@@ -86,15 +86,34 @@ const historyCache = {
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config) {
         await interaction.deferReply()
-        const entry = await config.prisma.user.findFirst({
-            where: { id: interaction.user.id }
-        })
-        let user = interaction.options.getString("user");
-        let useLastFM = interaction.options.getBoolean("uselastfm");
+        const otherUser = interaction.options.getUser("discord_user")
+        let user: string | null;
+        let useLastFM: boolean | null;
 
-        if (entry?.musicUsername) {
-            user ??= entry.musicUsername;
-            useLastFM ??= !entry.musicUsesListenbrainz;
+        if (otherUser) {
+            const entry = await config.prisma.user.findFirst({
+                where: { id: otherUser.id }
+            });
+            if (!entry?.musicUsername) {
+                await interaction.followUp({
+                    content: `${otherUser.username} doesn't have a music account saved`,
+                    flags: [MessageFlags.Ephemeral]
+                });
+                return;
+            }
+            user = entry.musicUsername;
+            useLastFM = !entry.musicUsesListenbrainz;
+        } else {
+            const entry = await config.prisma.user.findFirst({
+                where: { id: interaction.user.id }
+            })
+            user = interaction.options.getString("user");
+            useLastFM = interaction.options.getBoolean("uselastfm");
+
+            if (entry?.musicUsername) {
+                user ??= entry.musicUsername;
+                useLastFM ??= !entry.musicUsesListenbrainz;
+            }
         }
 
         if (user === null || useLastFM === null) {
@@ -208,7 +227,10 @@ export default declareCommand({
             return option.setName("user").setDescription("username").setRequired(false)
         })
         .addBooleanOption(option => {
-            return option.setName("uselastfm").setDescription("use last.fm or not").setRequired(false)
+            return option.setName("uselastfm").setDescription("use last.fm or listenbrainz").setRequired(false)
+        })
+        .addUserOption(option => {
+            return option.setName("discord_user").setDescription("a user with their music account saved by the bot. has priority over other options").setRequired(false)
         })
         .setContexts([
             InteractionContextType.BotDM,
