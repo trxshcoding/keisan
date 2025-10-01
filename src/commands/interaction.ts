@@ -82,7 +82,7 @@ export default declareCommand({
                             .setContent(`### ${tense[subcommand]
                                 .replace("$1", interaction.user.displayName)
                                 .replace("$2", user.id === interaction.user.id ? "themselves" : user.displayName)
-                                }`)
+                                }\n-# powered by waifu.pics`)
                     )
                     .addMediaGalleryComponents(
                         new MediaGalleryBuilder()
