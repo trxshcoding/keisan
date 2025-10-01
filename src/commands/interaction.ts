@@ -17,7 +17,7 @@ import {
 } from "discord.js";
 import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 
-const categories = ["hug", "pat", "bonk", "poke", "handhold", "slap"] // as const
+const categories = ["hug", "pat", "bonk", "poke", "handhold", "bite", "slap"] // as const
 const tense: Record<typeof categories[number], string> = {
     hug: "$1 hugs $2",
     pat: "$1 pets $2",
