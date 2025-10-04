@@ -28,4 +28,19 @@ model User {
   musicUsername         String?
   musicUsesListenbrainz Boolean?
   shitposts             Shitpost[]
+  marriage              Marriage?
+
+  Marriage Marriage[] @relation("Spouse")
+}
+
+model Marriage {
+  id        Int    @id @default(autoincrement())
+  userOneId String @unique
+  userOne   User   @relation(fields: [userOneId], references: [id], onDelete: Cascade)
+  userTwoId String @unique
+  userTwo   User   @relation("Spouse", fields: [userTwoId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userOneId, userTwoId])
 }
