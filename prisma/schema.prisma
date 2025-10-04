@@ -1,16 +1,9 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
-  // TODO: look at https://www.prisma.io/docs/orm/overview/databases/sqlite#using-the-better-sqlite3-driver
   provider = "sqlite"
   url      = "file:./amyjr.db"
 }
@@ -19,8 +12,8 @@ model Shitpost {
   id      Int     @id @default(autoincrement())
   name    String
   content Bytes
-  User    User?   @relation(fields: [userId], references: [id])
   userId  String?
+  User    User?   @relation(fields: [userId], references: [id])
 }
 
 model User {
@@ -28,18 +21,12 @@ model User {
   musicUsername         String?
   musicUsesListenbrainz Boolean?
   shitposts             Shitpost[]
-  marriage              Marriage?
-
-  Marriage Marriage[] @relation("Spouse")
 }
 
 model Marriage {
-  id        Int    @id @default(autoincrement())
-  userOneId String @unique
-  userOne   User   @relation(fields: [userOneId], references: [id], onDelete: Cascade)
-  userTwoId String @unique
-  userTwo   User   @relation("Spouse", fields: [userTwoId], references: [id], onDelete: Cascade)
-
+  id        Int      @id @default(autoincrement())
+  userOneId String   @unique
+  userTwoId String   @unique
   createdAt DateTime @default(now())
 
   @@unique([userOneId, userTwoId])
