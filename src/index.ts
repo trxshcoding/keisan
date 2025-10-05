@@ -54,7 +54,7 @@ function makeDefaultAvailableEverywhere<T extends { setContexts(...contexts: Arr
 }
 //`e` is unknown so idfk what im supposed to put as the type here?
 function replyWithError(interaction: Exclude<Interaction, AutocompleteInteraction>, e: any) {
-    if (e.toString()?.includes("Missing Permissions")){
+    if (e.toString()?.includes("Missing Permissions")) {
         interaction.deferred || interaction.replied
             ? interaction.followUp("missing permissions")
             : interaction.reply("missing permissions")
@@ -153,7 +153,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isMessageComponent()) return;
     //deprecated? skill issue.
     const { commandName } = interaction.message.interaction!;
-    const command = commandLookup[commandName]
+    const command = commandLookup[commandName.split(" ")[0]]
     if (!command) {
         console.error("unknown command: " + commandName)
         return
