@@ -40,7 +40,7 @@ export default declareCommand({
                     if (!user)
                         await interaction.reply(`you're married to <@${otherUserId}>`)
                     else
-                        await interaction.reply(`you're married to **${user.displayName}** (${user.username})**`)
+                        await interaction.reply(`you're married to **${user.displayName}** (${user.username})`)
                 } else {
                     await interaction.reply("you aren't married to anyone (yet)")
                 }
@@ -66,6 +66,7 @@ export default declareCommand({
                     : marriage.userOneId
                 const user = await interaction.client.users.fetch(otherUserId)
                 await interaction.reply(`you broke up with **${user.displayName}** 💔`)
+                break;
             }
             case "propose": {
                 if (marriage) {
