@@ -7,6 +7,8 @@ import {
 } from "discord.js";
 import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 import sharp from "sharp";
+import { Canvas, loadImage } from "canvas";
+import { z } from "zod";
 
 async function urlToDataURI(url: string) {
     const response = await fetch(url);
@@ -15,8 +17,32 @@ async function urlToDataURI(url: string) {
     return `data:${blob.type};base64,${buffer.toString('base64')}`;
 }
 
+async function assembleLastFmGrid(username: string, apiKey?: string) {
+    const IMG_SIZE = 256, GRID_SIZE = 3;
+    if (!apiKey) return
+    const res = await (await fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums\
+&user=${username}&api_key=${apiKey}&period=7days&format=json`)).json();
+    const imgs = (res.topalbums.album
+        .map((a: any) => a.image.at(-1)!["#text"]) as string[])
+        .filter(i => i)
+        .slice(0, GRID_SIZE ** 2);
+
+    const canvas = new Canvas(IMG_SIZE * 3, IMG_SIZE * 3);
+    const ctx = canvas.getContext("2d");
+
+    const imagePromises = imgs.map(url => loadImage(url));
+    const loadedImages = await Promise.all(imagePromises);
+    loadedImages.forEach((img, i) => {
+        const x = (i % GRID_SIZE) * IMG_SIZE;
+        const y = Math.floor(i / GRID_SIZE) * IMG_SIZE;
+        ctx.drawImage(img, x, y, IMG_SIZE, IMG_SIZE);
+    });
+
+    return canvas.toBuffer("image/png");
+}
+
 export default declareCommand({
-    async run(interaction: ChatInputCommandInteraction, config: Config) {
+    async run(interaction: ChatInputCommandInteraction, config) {
         await interaction.deferReply()
         const otherUser = interaction.options.getUser("discord_user")
         let user: string | null;
@@ -56,7 +82,22 @@ export default declareCommand({
             return
         }
         if (useLastFM) {
-            await interaction.followUp("https://tenor.com/view/last-fm-spotify-wrapped-music-dog-rejection-weirded-out-gif-2852139180125226669\n(this command doesnt support lastfm yet)")
+            const img = await assembleLastFmGrid(user, config.lastFMApiKey)
+            if (!img) {
+                await interaction.followUp({
+                    content: "something sharted itself",
+                    flags: [MessageFlags.Ephemeral]
+                })
+                return
+            }
+            await interaction.followUp({
+                content: `here is yo shit`,
+                files: [
+                    new AttachmentBuilder(img)
+                        .setName('hardcoremusiclistening.png')
+                        .setDescription(`${user} is listening so music :fire:`),
+                ]
+            });
             return
         }
         let svgshit = await fetch(`https://api.listenbrainz.org/1/art/grid-stats/${user}/this_week/3/0/512`).then(res => res.text())
@@ -96,7 +137,9 @@ export default declareCommand({
         });
 
     },
-    dependsOn: NO_EXTRA_CONFIG,
+    dependsOn: z.object({
+        lastFMApiKey: z.string()
+    }),
     slashCommand: new SlashCommandBuilder()
         .setName("grid")
         .setDescription("get a cover art grid from the stats of a given user.").setIntegrationTypes([
