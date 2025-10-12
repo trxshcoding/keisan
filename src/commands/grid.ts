@@ -17,25 +17,38 @@ async function urlToDataURI(url: string) {
     return `data:${blob.type};base64,${buffer.toString('base64')}`;
 }
 
-async function assembleLastFmGrid(username: string, apiKey?: string) {
-    const IMG_SIZE = 256, GRID_SIZE = 3;
+async function assembleLastFmGrid(username: string, gridSize: number, period: string, apiKey?: string) {
+    const IMAGE_SIZE = 256;
+    const periodMap = {
+        week: "7day",
+        month: "1month",
+        quarter: "3month",
+        half_yearly: "6month",
+        year: "12month",
+        all_time: "overall"
+    } as Record<string, string>
+
     if (!apiKey) return
     const res = await (await fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums\
-&user=${username}&api_key=${apiKey}&period=7days&format=json`)).json();
+&user=${username}&api_key=${apiKey}&period=${periodMap[period]}&format=json`)).json();
     const imgs = (res.topalbums.album
         .map((a: any) => a.image.at(-1)!["#text"]) as string[])
         .filter(i => i)
-        .slice(0, GRID_SIZE ** 2);
+        .slice(0, gridSize ** 2);
 
-    const canvas = new Canvas(IMG_SIZE * 3, IMG_SIZE * 3);
+    const canvas = new Canvas(IMAGE_SIZE * gridSize, IMAGE_SIZE * gridSize);
     const ctx = canvas.getContext("2d");
 
-    const imagePromises = imgs.map(url => loadImage(url));
+    const imagePromises = imgs.map(url => loadImage(url).catch(() => {
+        // TODO: why are you like this
+        console.log(url)
+        return loadImage("https://files.catbox.moe/4zscph.jpeg")
+    }));
     const loadedImages = await Promise.all(imagePromises);
     loadedImages.forEach((img, i) => {
-        const x = (i % GRID_SIZE) * IMG_SIZE;
-        const y = Math.floor(i / GRID_SIZE) * IMG_SIZE;
-        ctx.drawImage(img, x, y, IMG_SIZE, IMG_SIZE);
+        const x = (i % gridSize) * IMAGE_SIZE;
+        const y = Math.floor(i / gridSize) * IMAGE_SIZE;
+        ctx.drawImage(img, x, y, IMAGE_SIZE, IMAGE_SIZE);
     });
 
     return canvas.toBuffer("image/png");
@@ -81,8 +94,11 @@ export default declareCommand({
             })
             return
         }
+
+        const GRID_SIZE = 3, DEFAULT_PERIOD = "week";
+        const period = interaction.options.getString("period") ?? DEFAULT_PERIOD
         if (useLastFM) {
-            const img = await assembleLastFmGrid(user, config.lastFMApiKey)
+            const img = await assembleLastFmGrid(user, GRID_SIZE, period, config.lastFMApiKey)
             if (!img) {
                 await interaction.followUp({
                     content: "something sharted itself",
@@ -100,7 +116,7 @@ export default declareCommand({
             });
             return
         }
-        let svgshit = await fetch(`https://api.listenbrainz.org/1/art/grid-stats/${user}/this_week/3/0/512`).then(res => res.text())
+        let svgshit = await fetch(`https://api.listenbrainz.org/1/art/grid-stats/${user}/${period}/${GRID_SIZE}/0/512`).then(res => res.text())
         const imageUrls = [...new Set([...svgshit.matchAll(/<image[^>]*?(?:xlink:)?href="([^"]*)"/g)].map(match => match[1]))];
 
         const urlToDataUriMap = new Map<string, string>();
@@ -145,6 +161,29 @@ export default declareCommand({
         .setDescription("get a cover art grid from the stats of a given user.").setIntegrationTypes([
             ApplicationIntegrationType.UserInstall
         ])
+        .addStringOption(option =>
+            option.setName("period").setDescription("timespan of the collage")
+                .setChoices([{
+                    name: "1 week",
+                    value: "week"
+                }, {
+                    name: "1 month",
+                    value: "month"
+                }, {
+                    name: "3 months",
+                    value: "quarter"
+                }, {
+                    name: "6 months",
+                    value: "half_yearly"
+                }, {
+                    name: "1 year",
+                    value: "year"
+                }, {
+                    name: "All time",
+                    value: "all_time"
+                }])
+                .setRequired(false)
+        )
         .addStringOption(option => {
             return option.setName("user").setDescription("username").setRequired(false)
         })
