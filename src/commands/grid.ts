@@ -107,7 +107,7 @@ export default declareCommand({
                 return
             }
             await interaction.followUp({
-                content: `here is yo shit`,
+                content: `${user}'s (${useLastFM? "lastfm" : "listenbrainz"}) grid over the past ${period}`,
                 files: [
                     new AttachmentBuilder(img)
                         .setName('hardcoremusiclistening.png')
@@ -140,8 +140,6 @@ export default declareCommand({
             }
             return match;
         });
-
-
 
         await interaction.followUp({
             content: `${user}'s (${useLastFM? "lastfm" : "listenbrainz"}) grid over the past ${period}`,
