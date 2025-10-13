@@ -138,13 +138,13 @@ export default declareCommand({
             if (dataUri) {
                 return p1 + dataUri + p3;
             }
-            return match; // Keep original if data URI wasn't created
+            return match;
         });
 
 
 
         await interaction.followUp({
-            content: `here is yo shit`,
+            content: `${user}'s (${useLastFM? "lastfm" : "listenbrainz"}) grid over the past ${period}`,
             files: [
                 new AttachmentBuilder(sharp(Buffer.from(svgshit)).png())
                     .setName('hardcoremusiclistening.png')
