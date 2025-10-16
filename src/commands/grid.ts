@@ -2,6 +2,7 @@ import { declareCommand } from "../command.ts";
 import {
     ApplicationIntegrationType, AttachmentBuilder,
     ChatInputCommandInteraction,
+    EmbedBuilder,
     InteractionContextType, MessageFlags,
     SlashCommandBuilder
 } from "discord.js";
@@ -15,6 +16,17 @@ async function urlToDataURI(url: string) {
     const blob = await response.blob();
     const buffer = Buffer.from(await blob.arrayBuffer());
     return `data:${blob.type};base64,${buffer.toString('base64')}`;
+}
+
+async function getPlayCount(username: string, useLastFM: boolean, apiKey?: string): Promise<number> {
+    if (useLastFM) {
+        let response = await (await fetch(`https://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${username}&api_key=${apiKey}&format=json`)).json()
+        return response.user.playcount
+    }
+    else {
+        let response = await (await fetch(`https://api.listenbrainz.org/1/user/${username}/listen-count`)).json()
+        return response.payload.count
+    }
 }
 
 async function assembleLastFmGrid(username: string, gridSize: number, period: string, apiKey?: string) {
@@ -97,6 +109,7 @@ export default declareCommand({
 
         const GRID_SIZE = 3, DEFAULT_PERIOD = "week";
         const period = interaction.options.getString("period") ?? DEFAULT_PERIOD
+        const playCount = await getPlayCount(user, useLastFM, config.lastFMApiKey);
         if (useLastFM) {
             const img = await assembleLastFmGrid(user, GRID_SIZE, period, config.lastFMApiKey)
             if (!img) {
@@ -107,12 +120,18 @@ export default declareCommand({
                 return
             }
             await interaction.followUp({
-                content: `${user}'s (${useLastFM? "lastfm" : "listenbrainz"}) grid over the past ${period}`,
                 files: [
                     new AttachmentBuilder(img)
                         .setName('hardcoremusiclistening.png')
                         .setDescription(`${user} is listening so music :fire:`),
-                ]
+                ],
+                embeds: [
+                    new EmbedBuilder()
+                        .setDescription(`${user}'s (${useLastFM? "lastfm" : "listenbrainz"}) grid over the past ${period}`)
+                        .setImage("attachment://hardcoremusiclistening.png")
+                        .setColor(0xFF00FF)
+                        .setFooter({text: `${playCount} scrobbles`})
+                    ]
             });
             return
         }
@@ -142,11 +161,17 @@ export default declareCommand({
         });
 
         await interaction.followUp({
-            content: `${user}'s (${useLastFM? "lastfm" : "listenbrainz"}) grid over the past ${period}`,
             files: [
                 new AttachmentBuilder(sharp(Buffer.from(svgshit)).png())
                     .setName('hardcoremusiclistening.png')
                     .setDescription(`${user} is listening so music :fire:`),
+            ],
+            embeds: [
+               new EmbedBuilder()
+                .setDescription(`${user}'s (${useLastFM? "lastfm" : "listenbrainz"}) grid over the past ${period}`)
+                .setImage("attachment://hardcoremusiclistening.png")
+                .setColor(0xFF00FF)
+                .setFooter({text: `${playCount} scrobbles`})
             ]
         });
 
