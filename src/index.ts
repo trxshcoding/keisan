@@ -15,6 +15,7 @@ import { type Config, config } from "./config.ts";
 import { CopyObjectCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 import { registerFont } from "canvas";
 import * as tmp from 'tmp'
+import {MusicBrainzApi} from "musicbrainz-api";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 tmp.setGracefulCleanup();

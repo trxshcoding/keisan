@@ -10,8 +10,9 @@ import {
 } from "discord.js";
 
 import { getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache, songView } from "../music.ts"
-import { hash } from "crypto"
-import { escapeMarkdown } from "../util.ts";
+import { hash, randomUUID } from "crypto"
+import {escapeMarkdown, mbApi} from "../util.ts";
+import sharp from "sharp";
 import { declareCommand } from "../command.ts";
 import { z } from "zod";
 
@@ -34,9 +35,10 @@ const slashCommand = new SlashCommandBuilder()
         InteractionContextType.Guild,
         InteractionContextType.PrivateChannel
     ])
+import type { IRelease } from "musicbrainz-api";
 
 type HistoryItem = {
-    songName: string, artistName: string, albumName?: string, link?: string
+    songName: string, artistName: string, albumName?: string, link?: string, mbid?: string
 }
 async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<HistoryItem | false | undefined> {
     if (!lastFMApiKey) {
@@ -49,7 +51,8 @@ async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<H
                 songName: trackMetadata.track_name,
                 artistName: trackMetadata.artist_name,
                 albumName: trackMetadata.release_name,
-                link: trackMetadata.additional_info.origin_url
+                link: trackMetadata.additional_info.origin_url,
+                mbid: trackMetadata.additional_info.release_mbid
             }
         }
     } else {
@@ -64,9 +67,57 @@ async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<H
             return {
                 songName: track.name,
                 artistName: track.artist["#text"],
-                albumName: track.album["#text"]
+                albumName: track.album["#text"],
+                mbid: track.mbid
             }
         }
+    }
+}
+
+async function getMusicBrainzInfo(release: IRelease, songTitle: string): Promise<{
+    songname: string,
+    albumname: string,
+    albumartlink: string
+} | null> {
+    const albumname = release.title;
+    const track = release.media?.flatMap(m => m.tracks).find(t => t.title.toLowerCase() === songTitle.toLowerCase())
+        ?? release.media?.[0]?.tracks?.[0];
+
+    const songname = track?.title ?? songTitle;
+
+    const coverArtUrl = `https://coverartarchive.org/release/${release.id}/front`;
+    try {
+        const response = await fetch(coverArtUrl, { method: 'HEAD' });
+        if (!response.ok) {
+            return null;
+        }
+        return { songname, albumname, albumartlink: response.url };
+    } catch (error) {
+        console.error("Failed to fetch cover art:", error);
+        return null;
+    }
+}
+
+async function createResizedEmoji(interaction: ChatInputCommandInteraction, imageUrl: string) {
+    try {
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+            console.error(`Failed to fetch image for emoji: ${imageResponse.statusText}`);
+            return null;
+        }
+        const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+
+        const resizedImageBuffer = await sharp(imageBuffer)
+            .resize(128, 128)
+            .toBuffer();
+
+        return await interaction.client.application.emojis.create({
+            attachment: resizedImageBuffer,
+            name: hash("md5", imageUrl),
+        });
+    } catch (error) {
+        console.error("Failed to create resized emoji:", error);
+        return null;
     }
 }
 
@@ -111,7 +162,10 @@ export default declareCommand({
             return
         }
 
+
+
         const nowPlaying = await getNowPlaying(user, useLastFM ? config.lastFMApiKey : undefined)
+
         if (typeof nowPlaying === "undefined") {
             await interaction.followUp("something shat itself!");
             return;
@@ -119,8 +173,27 @@ export default declareCommand({
             await interaction.followUp(user + " isn't listening to music");
             return
         }
-        let { link } = nowPlaying
+        let { link, mbid } = nowPlaying
 
+        const albumName = nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "") === nowPlaying.songName
+            ? ""
+            : nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "")
+        function sendFallback(nowPlaying: HistoryItem) {
+            return interaction.followUp({
+                content: `### ${escapeMarkdown(nowPlaying.songName)}
+-# by ${escapeMarkdown(nowPlaying.artistName)}${albumName ? ` - from ${escapeMarkdown(albumName)}` : ""}
+-# couldn't get more info about this song`
+            })
+        }
+
+        if (!mbid) {
+            await sendFallback(nowPlaying)
+            return
+        }
+        const release = await mbApi.lookup('release', mbid, [
+            'recordings', 'artists', 'labels', 'url-rels', 'release-groups'
+        ]);
+        const musicBrainzInfo = await getMusicBrainzInfo(release, nowPlaying.songName);
         const paramsObj = { entity: "song", term: `${nowPlaying.artistName} ${nowPlaying.songName}` };
         const searchParams = new URLSearchParams(paramsObj);
         if (!link) {
@@ -137,17 +210,37 @@ export default declareCommand({
             }
         }
 
-        const albumName = nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "") === nowPlaying.songName
-            ? ""
-            : nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "")
-        function sendFallback(nowPlaying: HistoryItem) {
-            return interaction.followUp({
-                content: `### ${escapeMarkdown(nowPlaying.songName)}
--# by ${escapeMarkdown(nowPlaying.artistName)}${albumName ? ` - from ${escapeMarkdown(albumName)}` : ""}
--# couldn't get more info about this song`
-            })
+        if (musicBrainzInfo) {
+            if (link) {
+                const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
+                const components = [
+                    new ActionRowBuilder<MessageActionRowComponentBuilder>()
+                        .addComponents(
+                            new ButtonBuilder()
+                                .setStyle(ButtonStyle.Secondary)
+                                .setLabel("expand")
+                                .setCustomId(songlink.pageUrl),
+                        ),
+                ];
+                const emoji = await createResizedEmoji(interaction, musicBrainzInfo.albumartlink);
+                await interaction.followUp({
+                    content: `### ${escapeMarkdown(musicBrainzInfo.songname)} ${emoji ?? ""}\n-# by ${escapeMarkdown(nowPlaying.artistName)} - from ${escapeMarkdown(musicBrainzInfo.albumname)}`,
+                    components
+                });
+                if (emoji) {
+                    await emoji.delete();
+                }
+                return;
+            }
+            const emoji = await createResizedEmoji(interaction, musicBrainzInfo.albumartlink);
+            await interaction.followUp({
+                content: `### ${escapeMarkdown(musicBrainzInfo.songname)} ${emoji ?? ""}\n-# by ${escapeMarkdown(nowPlaying.artistName)} - from ${escapeMarkdown(musicBrainzInfo.albumname)}`,
+            });
+            if (emoji) {
+                await emoji.delete();
+            }
+            return;
         }
-
         if (!link) {
             await sendFallback(nowPlaying)
             return
@@ -164,10 +257,11 @@ export default declareCommand({
             songlink
         }
 
-        const emoji = await interaction.client.application.emojis.create({
-            attachment: preferredApi.thumbnailUrl,
-            name: hash("md5", preferredApi.thumbnailUrl),
-        });
+        const emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
+        if (!emoji) {
+            await sendFallback(nowPlaying);
+            return;
+        }
         const components = [
             new ActionRowBuilder<MessageActionRowComponentBuilder>()
                 .addComponents(
