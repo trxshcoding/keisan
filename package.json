@@ -15,6 +15,7 @@
     "discord.js": "^14.19.3",
     "isomorphic-git": "^1.33.1",
     "linguist-js": "^2.9.2",
+    "musicbrainz-api": "^0.25.1",
     "sharp": "git+ssh://git@github.com/lovell/sharp.git",
     "tmp": "^0.2.5",
     "zod": "^3.24.2"

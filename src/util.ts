@@ -2,6 +2,7 @@ import { type Client, ModalBuilder, SlashCommandBuilder } from "discord.js";
 import type { Results } from "linguist-js/dist/types";
 import { number } from "zod";
 import { Canvas } from "canvas";
+import {MusicBrainzApi} from "musicbrainz-api";
 
 export function chunkArray<T>(
     array: T[],
@@ -70,6 +71,11 @@ export function getTop3Languages(result: Results) {
 export function escapeMarkdown(content: string) {
     return content.replace(/([#*_~`|])/g, "\\$1")
 }
+
+export const mbApi = new MusicBrainzApi({
+    appName: 'YourAppName',
+    appVersion: '1.0.0',
+});
 
 export function imageBullshittery(username: string) {
     const p = 2;
