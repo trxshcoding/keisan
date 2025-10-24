@@ -83,6 +83,7 @@ export const itunesResponseShape = z.object({
         trackName: z.string(),
         collectionName: z.string(),
         collectionCensoredName: z.string().optional(),
+        artworkUrl100: z.string().optional(),
         censoredTrackName: z.string().optional(),
     }))
 })
