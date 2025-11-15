@@ -4,12 +4,13 @@ import {
     ChatInputCommandInteraction,
     EmbedBuilder,
     InteractionContextType, MessageFlags,
-    SlashCommandBuilder
+    SlashCommandBuilder,
+    type BufferResolvable
 } from "discord.js";
-import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 import sharp from "sharp";
-import { Canvas, loadImage } from "canvas";
+import { Canvas, loadImage, type CanvasRenderingContext2D } from "canvas";
 import { z } from "zod";
+import type Stream from "stream";
 
 async function urlToDataURI(url: string) {
     const response = await fetch(url);
@@ -17,6 +18,26 @@ async function urlToDataURI(url: string) {
     const buffer = Buffer.from(await blob.arrayBuffer());
     return `data:${blob.type};base64,${buffer.toString('base64')}`;
 }
+
+const periodChoices = [{
+    name: "1 week",
+    value: "week"
+}, {
+    name: "1 month",
+    value: "month"
+}, {
+    name: "3 months",
+    value: "quarter"
+}, {
+    name: "6 months",
+    value: "half_yearly"
+}, {
+    name: "1 year",
+    value: "year"
+}, {
+    name: "All time",
+    value: "all_time"
+}]
 
 async function getPlayCount(username: string, useLastFM: boolean, apiKey?: string): Promise<number> {
     if (useLastFM) {
@@ -28,6 +49,22 @@ async function getPlayCount(username: string, useLastFM: boolean, apiKey?: strin
         return response.payload.count
     }
 }
+
+const truncateText = (text: string, maxWidth: number, ctx: CanvasRenderingContext2D) => {
+    const ellipsisWidth = ctx.measureText("...").width;
+    let width = ctx.measureText(text).width;
+    if (width <= maxWidth) {
+        return text;
+    }
+    let truncatedText = text;
+    let i = text.length;
+    while (width >= maxWidth - ellipsisWidth && i > 0) {
+        truncatedText = text.substring(0, i);
+        width = ctx.measureText(truncatedText).width;
+        i--;
+    }
+    return truncatedText + "...";
+};
 
 async function assembleLastFmGrid(username: string, gridSize: number, period: string, apiKey?: string) {
     const IMAGE_SIZE = 256;
@@ -41,26 +78,26 @@ async function assembleLastFmGrid(username: string, gridSize: number, period: st
     } as Record<string, string>
 
     if (!apiKey) return
-    const res = await (await fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${username}&api_key=${apiKey}&period=${periodMap[period]}&limit=50&format=json`)).json();
-
+    const res = await (await fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${username}&api_key=${apiKey}\
+&period=${periodMap[period]}&limit=50&format=json`)).json();
     if (!res.topalbums || !res.topalbums.album || res.topalbums.album.length === 0) {
         return;
     }
 
-    const usefulinfo = res.topalbums.album.map((a:any) => {
-        return {
-            artist: a.artist.name,
-            name: a.name,
-            image: a.image.at(-1)!["#text"]
-        }
-    }).filter((a: any) => a.image).slice(0, gridSize * gridSize);
+    const usefulinfo = res.topalbums.album.map((a: any) =>
+    ({
+        artist: a.artist.name,
+        name: a.name,
+        image: a.image.at(-1)!["#text"]
+    })
+    ).filter((a: any) => a.image).slice(0, gridSize ** 2);
 
     const canvas = new Canvas(IMAGE_SIZE * gridSize, IMAGE_SIZE * gridSize);
     const ctx = canvas.getContext("2d");
 
     const imagePromises = usefulinfo.map((info: any) => loadImage(info.image).catch((e) => {
         console.error(`Failed to load image ${info.image}`, e);
-        return loadImage("https://files.catbox.moe/4zscph.jpeg"); // fallback image
+        return loadImage("https://files.catbox.moe/4zscph.jpeg");
     }));
     const loadedImages = await Promise.all(imagePromises);
 
@@ -69,28 +106,28 @@ async function assembleLastFmGrid(username: string, gridSize: number, period: st
         const y = Math.floor(i / gridSize) * IMAGE_SIZE;
         ctx.drawImage(img, x, y, IMAGE_SIZE, IMAGE_SIZE);
 
-        const albumName = usefulinfo[i].name;
-        const artistName = usefulinfo[i].artist;
-
-        const padding = 10;
+        const padding = 8;
         const fontSize = 18;
         const lineHeight = fontSize * 1.2;
         const rectHeight = lineHeight * 2 + padding;
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(x, y + IMAGE_SIZE - rectHeight, IMAGE_SIZE, rectHeight);
 
         ctx.fillStyle = 'white';
-        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.font = `${fontSize}px sans-serif`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
 
         const textX = x + padding;
-        const artistY = y + IMAGE_SIZE - padding;
+        const artistY = y + IMAGE_SIZE;
         const albumY = artistY - lineHeight;
 
-        ctx.fillText(albumName, textX, albumY, IMAGE_SIZE - (padding * 2));
-        ctx.fillText(artistName, textX, artistY, IMAGE_SIZE - (padding * 2));
+        const albumName = truncateText(usefulinfo[i].name, IMAGE_SIZE - (padding * 2), ctx);
+        const artistName = truncateText(usefulinfo[i].artist, IMAGE_SIZE - (padding * 2), ctx);
+
+        ctx.fillText(albumName, textX, albumY);
+        ctx.fillText(artistName, textX, artistY);
     });
 
     return canvas.toBuffer("image/png");
@@ -140,68 +177,59 @@ export default declareCommand({
         const GRID_SIZE = 3, DEFAULT_PERIOD = "week";
         const period = interaction.options.getString("period") ?? DEFAULT_PERIOD
         const playCount = await getPlayCount(user, useLastFM, config.lastFMApiKey);
+
+        let img: BufferResolvable | Stream | undefined = undefined
+
         if (useLastFM) {
-            const img = await assembleLastFmGrid(user, GRID_SIZE, period, config.lastFMApiKey)
-            if (!img) {
-                await interaction.followUp({
-                    content: "something sharted itself",
-                    flags: [MessageFlags.Ephemeral]
+            img = await assembleLastFmGrid(user, GRID_SIZE, period, config.lastFMApiKey)
+        } else {
+            let svgshit = await fetch(`https://api.listenbrainz.org/1/art/grid-stats/${user}/${period}/${GRID_SIZE}/0/512`).then(res => res.text())
+            const imageUrls = [...new Set([...svgshit.matchAll(/<image[^>]*?(?:xlink:)?href="([^"]*)"/g)].map(match => match[1]))];
+
+            const urlToDataUriMap = new Map<string, string>();
+            await Promise.all(
+                imageUrls.map(async (url) => {
+                    if (url && !url.startsWith('data:')) {
+                        try {
+                            const dataUri = await urlToDataURI(`${url}`);
+                            urlToDataUriMap.set(url, dataUri);
+                        } catch (e) {
+                            console.error(`Failed to process image ${url}:`, e);
+                        }
+                    }
                 })
-                return
-            }
-            await interaction.followUp({
-                files: [
-                    new AttachmentBuilder(img)
-                        .setName('hardcoremusiclistening.png')
-                        .setDescription(`${user} is listening so music :fire:`),
-                ],
-                embeds: [
-                    new EmbedBuilder()
-                        .setDescription(`${user}'s (${useLastFM? "lastfm" : "listenbrainz"}) grid over the past ${period}`)
-                        .setImage("attachment://hardcoremusiclistening.png")
-                        .setColor(0xFF00FF)
-                        .setFooter({text: `${playCount} scrobbles`})
-                    ]
+            );
+            svgshit = svgshit.replace(/(<image[^>]*?(?:xlink:)?href=")([^"]*)(")/g, (match, p1, url, p3) => {
+                const dataUri = urlToDataUriMap.get(url);
+                if (dataUri) {
+                    return p1 + dataUri + p3;
+                }
+                return match;
             });
+            img = sharp(Buffer.from(svgshit)).png()
+        }
+
+        if (!img) {
+            await interaction.followUp({
+                content: "something sharted itself",
+                flags: [MessageFlags.Ephemeral]
+            })
             return
         }
-        let svgshit = await fetch(`https://api.listenbrainz.org/1/art/grid-stats/${user}/${period}/${GRID_SIZE}/0/512`).then(res => res.text())
-        const imageUrls = [...new Set([...svgshit.matchAll(/<image[^>]*?(?:xlink:)?href="([^"]*)"/g)].map(match => match[1]))];
-
-        const urlToDataUriMap = new Map<string, string>();
-        await Promise.all(
-            imageUrls.map(async (url) => {
-                if (url && !url.startsWith('data:')) {
-                    try {
-                        const dataUri = await urlToDataURI(`${url}`);
-                        urlToDataUriMap.set(url, dataUri);
-                    } catch (e) {
-                        console.error(`Failed to process image ${url}:`, e);
-                    }
-                }
-            })
-        );
-
-        svgshit = svgshit.replace(/(<image[^>]*?(?:xlink:)?href=")([^"]*)(")/g, (match, p1, url, p3) => {
-            const dataUri = urlToDataUriMap.get(url);
-            if (dataUri) {
-                return p1 + dataUri + p3;
-            }
-            return match;
-        });
 
         await interaction.followUp({
             files: [
-                new AttachmentBuilder(sharp(Buffer.from(svgshit)).png())
+                new AttachmentBuilder(img)
                     .setName('hardcoremusiclistening.png')
                     .setDescription(`${user} is listening so music :fire:`),
             ],
             embeds: [
-               new EmbedBuilder()
-                .setDescription(`${user}'s (${useLastFM? "lastfm" : "listenbrainz"}) grid over the past ${period}`)
-                .setImage("attachment://hardcoremusiclistening.png")
-                .setColor(0xFF00FF)
-                .setFooter({text: `${playCount} scrobbles`})
+                new EmbedBuilder()
+                    .setDescription(`${user}'s (${useLastFM ? "lastfm" : "listenbrainz"}) grid \
+over the past ${periodChoices.find(c => c.value === period)!.name}`)
+                    .setImage("attachment://hardcoremusiclistening.png")
+                    .setColor(0xFF64C5)
+                    .setFooter({ text: `${playCount} scrobbles` })
             ]
         });
 
@@ -216,25 +244,7 @@ export default declareCommand({
         ])
         .addStringOption(option =>
             option.setName("period").setDescription("timespan of the collage")
-                .setChoices([{
-                    name: "1 week",
-                    value: "week"
-                }, {
-                    name: "1 month",
-                    value: "month"
-                }, {
-                    name: "3 months",
-                    value: "quarter"
-                }, {
-                    name: "6 months",
-                    value: "half_yearly"
-                }, {
-                    name: "1 year",
-                    value: "year"
-                }, {
-                    name: "All time",
-                    value: "all_time"
-                }])
+                .setChoices(periodChoices)
                 .setRequired(false)
         )
         .addStringOption(option => {
