@@ -41,26 +41,56 @@ async function assembleLastFmGrid(username: string, gridSize: number, period: st
     } as Record<string, string>
 
     if (!apiKey) return
-    const res = await (await fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums\
-&user=${username}&api_key=${apiKey}&period=${periodMap[period]}&format=json`)).json();
-    const imgs = (res.topalbums.album
-        .map((a: any) => a.image.at(-1)!["#text"]) as string[])
-        .filter(i => i)
-        .slice(0, gridSize ** 2);
+    const res = await (await fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${username}&api_key=${apiKey}&period=${periodMap[period]}&limit=50&format=json`)).json();
+
+    if (!res.topalbums || !res.topalbums.album || res.topalbums.album.length === 0) {
+        return;
+    }
+
+    const usefulinfo = res.topalbums.album.map((a:any) => {
+        return {
+            artist: a.artist.name,
+            name: a.name,
+            image: a.image.at(-1)!["#text"]
+        }
+    }).filter((a: any) => a.image).slice(0, gridSize * gridSize);
 
     const canvas = new Canvas(IMAGE_SIZE * gridSize, IMAGE_SIZE * gridSize);
     const ctx = canvas.getContext("2d");
 
-    const imagePromises = imgs.map(url => loadImage(url).catch(() => {
-        // TODO: why are you like this
-        console.log(url)
-        return loadImage("https://files.catbox.moe/4zscph.jpeg")
+    const imagePromises = usefulinfo.map((info: any) => loadImage(info.image).catch((e) => {
+        console.error(`Failed to load image ${info.image}`, e);
+        return loadImage("https://files.catbox.moe/4zscph.jpeg"); // fallback image
     }));
     const loadedImages = await Promise.all(imagePromises);
+
     loadedImages.forEach((img, i) => {
         const x = (i % gridSize) * IMAGE_SIZE;
         const y = Math.floor(i / gridSize) * IMAGE_SIZE;
         ctx.drawImage(img, x, y, IMAGE_SIZE, IMAGE_SIZE);
+
+        const albumName = usefulinfo[i].name;
+        const artistName = usefulinfo[i].artist;
+
+        const padding = 10;
+        const fontSize = 18;
+        const lineHeight = fontSize * 1.2;
+        const rectHeight = lineHeight * 2 + padding;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(x, y + IMAGE_SIZE - rectHeight, IMAGE_SIZE, rectHeight);
+
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+
+        const textX = x + padding;
+        const artistY = y + IMAGE_SIZE - padding;
+        const albumY = artistY - lineHeight;
+
+        ctx.fillText(albumName, textX, albumY, IMAGE_SIZE - (padding * 2));
+        ctx.fillText(artistName, textX, artistY, IMAGE_SIZE - (padding * 2));
     });
 
     return canvas.toBuffer("image/png");
