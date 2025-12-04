@@ -37,37 +37,32 @@ export default declareCommand({
 
         const gif = gifs[type]
 
-        const gifBuffer = await readFile(`./src/commands/gifs/${type}.gif`);
+        const gifBuffer = await readFile(`./src/commands/gifs/${type}.webp`);
         const image = sharp(gifBuffer, { animated: true });
+        const buffer = await image.toBuffer();
         const metadata = await image.metadata();
-
-
 
         if (!metadata.pages || !metadata.width || !metadata.pageHeight || !metadata.channels || !metadata.delay) {
             return
         }
         const frameCount = metadata.pages;
 
-        const avatarBuffer = await (await fetch(person.displayAvatarURL({ extension: "png", size: 128 }))).arrayBuffer()
+        const avatarBuffer = await (await fetch(person.displayAvatarURL({ extension: "webp", size: 512 }))).arrayBuffer()
         const resizedAvatar = await sharp(Buffer.from(avatarBuffer)).resize(gif.width, gif.height).toBuffer()
 
-        const balls = []
-
-        for (let i = 0; i < frameCount; i++) {
-            const frame = await sharp(await image.toBuffer(), { page: i }).composite([{
+        const frames = await Promise.all(Array.from({ length: frameCount }, (_, i) =>
+            sharp(buffer, { page: i }).composite([{
                 input: resizedAvatar,
                 top: gif.y,
                 left: gif.x
-            }]).toBuffer();
-            balls.push(frame)
-        }
+            }]).toBuffer())
+        )
 
         if (isReversed) {
-            balls.reverse()
+            frames.reverse()
         }
 
-        const webP = await sharp(balls, { join: { animated: true } })
-
+        const webP = await sharp(frames, { join: { animated: true } })
             .webp({
                 delay: metadata.delay,
                 loop: 0
