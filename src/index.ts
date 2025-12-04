@@ -23,12 +23,13 @@ const client = new Client({
     intents: [],
 });
 
+var isWin = process.platform === "win32";
 
 const allCommands: PackagedCommand<AnyCommand<unknown>, unknown>[] = []
 const commandDir = path.join(__dirname, "commands");
 for (const file of fs.readdirSync(commandDir)) {
     if (!file.endsWith('.ts')) continue
-    let command = await import(path.join(commandDir, file));
+    let command = await import(isWin ? `file://${path.join(commandDir, file)}` : path.join(commandDir, file));
     try {
         const declaredCommand = undeclareCommand(command.default);
         const packagedCommand = tryPackageCommand(declaredCommand)
