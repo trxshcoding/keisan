@@ -1,6 +1,7 @@
 //thank you to https://git.lunya.pet/Lunya/Ai for the inspiration
 import {
     ActionRowBuilder,
+    type ApplicationEmoji,
     ApplicationIntegrationType,
     ButtonBuilder,
     ButtonStyle,
@@ -16,11 +17,42 @@ import {
     TextDisplayBuilder,
     ThumbnailBuilder
 } from "discord.js";
-import {trimWhitespace} from "../util.ts";
-import {declareCommand} from "../command.ts";
-import {z} from "zod";
+import { chunkArray, createResizedEmoji, trimWhitespace } from "../util.ts";
+import { declareCommand } from "../command.ts";
+import { z } from "zod";
 
 const fediUserRegex = /@[^.@\s]+@(?:[^.@\s]+\.)+[^.@\s]+/
+const emojiRatelimits = [5, 3] as const;
+
+const fediNoteResponse = z.object({
+    user: z.object({
+        name: z.string().nullable(),
+        username: z.string(),
+        host: z.string().nullable(),
+        avatarUrl: z.string().url(),
+        description: z.string().nullable(),
+        emojis: z.record(z.string(), z.string().url())
+    }),
+    text: z.string().nullable(),
+    cw: z.string().nullable(),
+    emojis: z.record(z.string(), z.string().url()),
+    files: z.array(z.object({
+        type: z.string(),
+        url: z.string().url(),
+        isSensitive: z.boolean(),
+        comment: z.string().nullable()
+    })),
+    uri: z.string().url().nullable()
+})
+const fediUserResponse = z.object({
+    name: z.string().nullable(),
+    username: z.string(),
+    host: z.string().nullable(),
+    avatarUrl: z.string().url(),
+    description: z.string().nullable(),
+    emojis: z.record(z.string(), z.string().url()),
+    url: z.string().nullable()
+})
 
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config) {
@@ -33,7 +65,7 @@ export default declareCommand({
             shit = `https://${host}/@${user}`
         }
 
-        const {object: resp, type} = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
+        const { object, type } = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${config.sharkeyToken}`,
@@ -43,12 +75,32 @@ export default declareCommand({
                 uri: shit
             })
         }).then(res => res.json())
-        if ("error" in resp) {
-            await interaction.followUp(`nyaaaa 3:\n\`${resp.error.code}\``);
-            console.log(resp);
-            return;
-        }
+
         if (type === "Note") {
+            let resp
+            try {
+                resp = fediNoteResponse.parse(object)
+            } catch {
+                await interaction.followUp(`nyaaaa 3:\n\`${object?.error?.code || "cant parse response"}\``);
+                console.log(resp);
+                return;
+            }
+
+            const emojiItems = Object.entries(resp.emojis).map(([name, link]) => ([`post_${name}`, link]))
+                .concat(resp.user.name ? Object.entries(resp.user.emojis).map(([name, link]) => ([`user_${name}`, link]))
+                    .filter(e => resp.user.name?.includes(e[0].replace(/^user_/, ""))) : []) as [string, string][]
+            const emojis = {} as Record<string, ApplicationEmoji>
+            const emojiBatches = chunkArray(emojiItems, emojiRatelimits[0])
+            if (emojiBatches.length <= emojiRatelimits[1]) {
+                for (const chunk of emojiBatches) {
+                    const promise = await Promise.all(chunk.map(async ([name, link]) => ({ name, emoji: await createResizedEmoji(interaction, link) })))
+                    promise.forEach(e => {
+                        if (!e.emoji) return
+                        emojis[e.name] = e.emoji
+                    })
+                }
+            }
+
             let mainComponent
             const components: (TextDisplayBuilder | ContainerBuilder | ActionRowBuilder<MessageActionRowComponentBuilder>)[] = [
                 mainComponent = new ContainerBuilder()
@@ -64,7 +116,10 @@ export default declareCommand({
                                 if host is null, its the same host as the api
                                 why is it written like this? idfk
                                 */
-                                new TextDisplayBuilder().setContent(`## ${resp.user.name} (@${resp.user.username}@${resp.user.host === null ? config.sharkeyInstance : resp.user.host})`),
+                                new TextDisplayBuilder().setContent(`## ${(resp.user.name || resp.user.username).replace(/:([\w-]+):/g, (_, name) => {
+                                    if (!emojis[`user_${name}`]) return _
+                                    else return emojis[`user_${name}`].toString()
+                                })} (@${resp.user.username}@${resp.user.host === null ? config.sharkeyInstance : resp.user.host})`),
                             ),
                     ),
                 new ActionRowBuilder<MessageActionRowComponentBuilder>()
@@ -83,7 +138,10 @@ export default declareCommand({
 
             if (resp.text) {
                 mainComponent.addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(resp.text),
+                    new TextDisplayBuilder().setContent(resp.text.replace(/:([\w-]+):/g, (_, name) => {
+                        if (!emojis[`post_${name}`]) return _
+                        else return emojis[`post_${name}`].toString()
+                    })),
                 )
             }
 
@@ -112,8 +170,31 @@ export default declareCommand({
                 components: components,
                 flags: [MessageFlags.IsComponentsV2],
             });
+            Object.values(emojis).forEach((emoji) => emoji.delete())
             return;
         } else if (type === "User") {
+            let resp
+            try {
+                resp = fediUserResponse.parse(object)
+            } catch {
+                await interaction.followUp(`nyaaaa 3:\n\`${object?.error?.code || "cant parse response"}\``);
+                console.log(resp);
+                return;
+            }
+
+            const emojiItems = resp.name ? Object.entries(resp.emojis) : [] as [string, string][]
+            const emojis = {} as Record<string, ApplicationEmoji>
+            const emojiBatches = chunkArray(emojiItems, emojiRatelimits[0])
+            if (emojiBatches.length <= emojiRatelimits[1]) {
+                for (const chunk of emojiBatches) {
+                    const promise = await Promise.all(chunk.map(async ([name, link]) => ({ name, emoji: await createResizedEmoji(interaction, link) })))
+                    promise.forEach(e => {
+                        if (!e.emoji) return
+                        emojis[e.name] = e.emoji
+                    })
+                }
+            }
+
             const components = [
                 new ContainerBuilder()
                     .addSectionComponents(
@@ -123,13 +204,19 @@ export default declareCommand({
                                     .setURL(resp.avatarUrl)
                             )
                             .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(`## ${resp.name}`),
+                                new TextDisplayBuilder().setContent(`## ${(resp.name || resp.username).replace(/:([\w-]+):/g, (_, name) => {
+                                    if (!emojis[name]) return _
+                                    else return emojis[name].toString()
+                                })}`),
                                 //same as above. host is null when its the same as the api
                                 new TextDisplayBuilder().setContent(`@${resp.username}@${resp.host === null ? config.sharkeyInstance : resp.host}`),
                             ),
                     )
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(resp.description),
+                        new TextDisplayBuilder().setContent((resp.description || "-# absolutely nothing...").replace(/:([\w-]+):/g, (_, name) => {
+                            if (!emojis[name]) return _
+                            else return emojis[name].toString()
+                        })),
                     ),
                 new ActionRowBuilder<MessageActionRowComponentBuilder>()
                     .addComponents(
@@ -148,7 +235,7 @@ export default declareCommand({
                 components,
                 flags: [MessageFlags.IsComponentsV2],
             });
-
+            Object.values(emojis).forEach((emoji) => emoji.delete())
         }
 
     },

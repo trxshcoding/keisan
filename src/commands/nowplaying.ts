@@ -12,7 +12,7 @@ import {
 
 import { getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache, songView } from "../music.ts"
 import { hash, randomUUID } from "crypto"
-import { escapeMarkdown, mbApi } from "../util.ts";
+import { createResizedEmoji, escapeMarkdown, mbApi } from "../util.ts";
 import sharp from "sharp";
 import { declareCommand } from "../command.ts";
 import { z } from "zod";
@@ -95,29 +95,6 @@ async function getMusicBrainzInfo(release: IRelease, songTitle: string): Promise
         return { songname, albumname, albumartlink: response.url };
     } catch (error) {
         console.error("Failed to fetch cover art:", error);
-        return null;
-    }
-}
-
-async function createResizedEmoji(interaction: ChatInputCommandInteraction, imageUrl: string) {
-    try {
-        const imageResponse = await fetch(imageUrl);
-        if (!imageResponse.ok) {
-            console.error(`Failed to fetch image for emoji: ${imageResponse.statusText}`);
-            return null;
-        }
-        const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-
-        const resizedImageBuffer = await sharp(imageBuffer)
-            .resize(128, 128)
-            .toBuffer();
-
-        return await interaction.client.application.emojis.create({
-            attachment: resizedImageBuffer,
-            name: hash("md5", imageUrl),
-        });
-    } catch (error) {
-        console.error("Failed to create resized emoji:", error);
         return null;
     }
 }

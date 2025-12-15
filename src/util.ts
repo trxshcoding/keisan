@@ -1,8 +1,10 @@
-import { type Client, ModalBuilder, SlashCommandBuilder } from "discord.js";
+import { type ChatInputCommandInteraction, type Client, ModalBuilder, SlashCommandBuilder } from "discord.js";
 import type { Results } from "linguist-js/dist/types";
 import { number } from "zod";
 import { Canvas } from "canvas";
-import {MusicBrainzApi} from "musicbrainz-api";
+import { MusicBrainzApi } from "musicbrainz-api";
+import { hash } from "crypto";
+import sharp from "sharp";
 
 export function chunkArray<T>(
     array: T[],
@@ -158,4 +160,27 @@ export async function bufferToEmoji(buffer: Buffer, client: Client) {
         name: createRandomBullshit(12),
         attachment: buffer,
     })
+}
+
+export async function createResizedEmoji(interaction: ChatInputCommandInteraction, imageUrl: string) {
+    try {
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+            console.error(`Failed to fetch image for emoji: ${imageResponse.statusText}`);
+            return null;
+        }
+        const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+
+        const resizedImageBuffer = await sharp(imageBuffer)
+            .resize(128, 128)
+            .toBuffer();
+
+        return await interaction.client.application.emojis.create({
+            attachment: resizedImageBuffer,
+            name: hash("md5", imageUrl),
+        });
+    } catch (error) {
+        console.error("Failed to create resized emoji:", error);
+        return null;
+    }
 }
