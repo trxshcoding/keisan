@@ -60,6 +60,10 @@ function replyWithError(interaction: Exclude<Interaction, AutocompleteInteractio
         interaction.deferred || interaction.replied
             ? interaction.followUp("missing permissions")
             : interaction.reply("missing permissions")
+    } else if (e.toString().includes("AutoMod")) {
+        interaction.deferred || interaction.replied
+            ? interaction.followUp("automod has blocked me")
+            : interaction.reply("automod has blocked me")
     } else {
         interaction.deferred || interaction.replied
             ? interaction.followUp("something sharted itself")
