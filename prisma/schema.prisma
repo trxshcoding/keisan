@@ -21,13 +21,12 @@ model User {
   musicUsername         String?
   musicUsesListenbrainz Boolean?
   shitposts             Shitpost[]
+  partners              Partner[]
 }
 
-model Marriage {
-  id        Int      @id @default(autoincrement())
-  userOneId String   @unique
-  userTwoId String   @unique
-  createdAt DateTime @default(now())
-
-  @@unique([userOneId, userTwoId])
+model Partner {
+  id     Int    @id @default(autoincrement())
+  value  String
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 }

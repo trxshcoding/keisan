@@ -25,29 +25,40 @@ const proposals = [] as Proposal[]
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config: Config) {
         const command = interaction.options.getSubcommand(true)
-        const marriage = await config.prisma.marriage.findFirst({
-            where: {
-                OR: [{ userOneId: interaction.user.id }, { userTwoId: interaction.user.id }]
-            }
-        })
+        
         switch (command) {
             case "status": {
-                if (marriage) {
-                    const otherUserId = marriage.userOneId === interaction.user.id
-                        ? marriage.userTwoId
-                        : marriage.userOneId
-                    const user = await interaction.client.users.fetch(otherUserId)
-                    if (!user)
-                        await interaction.reply(`you're married to <@${otherUserId}>`)
-                    else
-                        await interaction.reply(`you're married to **${user.displayName}** (${user.username})`)
-                } else {
+                const user = await config.prisma.user.findUnique({
+                    where: { id: interaction.user.id },
+                    include: { partners: true }
+                })
+
+                if (!user || user.partners.length === 0) {
                     await interaction.reply("you aren't married to anyone (yet)")
+                    return
                 }
+
+                const partnerNames = []
+                for (const partner of user.partners) {
+                    try {
+                        const u = await interaction.client.users.fetch(partner.value)
+                        partnerNames.push(`**${u.displayName}** (${u.username})`)
+                    } catch {
+                        partnerNames.push(`<@${partner.value}>`)
+                    }
+                }
+                
+                await interaction.reply(`you're married to ${partnerNames.join(", ")}`)
                 break;
             }
             case "divorce": {
-                if (!marriage) {
+                const targetUser = interaction.options.getUser("user")
+                const user = await config.prisma.user.findUnique({
+                    where: { id: interaction.user.id },
+                    include: { partners: true }
+                })
+
+                if (!user || user.partners.length === 0) {
                     await interaction.reply({
                         content: "can't divorce the voices sadly",
                         flags: [MessageFlags.Ephemeral]
@@ -55,27 +66,42 @@ export default declareCommand({
                     return
                 }
 
+                let partnerIdToDivorce: string
+
+                if (targetUser) {
+                    if (!user.partners.some(p => p.value === targetUser.id)) {
+                        await interaction.reply({
+                            content: "you aren't married to them!",
+                            flags: [MessageFlags.Ephemeral]
+                        })
+                        return
+                    }
+                    partnerIdToDivorce = targetUser.id
+                } else {
+                    if (user.partners.length > 1) {
+                        await interaction.reply({
+                            content: "you have multiple partners, please specify who to divorce",
+                            flags: [MessageFlags.Ephemeral]
+                        })
+                        return
+                    }
+                    partnerIdToDivorce = user.partners[0].value
+                }
+
                 // ids are unique so it'll only be one and i want to use OR
-                await config.prisma.marriage.deleteMany({
+                await config.prisma.partner.deleteMany({
                     where: {
-                        OR: [{ userOneId: interaction.user.id }, { userTwoId: interaction.user.id }]
+                        OR: [
+                            { userId: interaction.user.id, value: partnerIdToDivorce },
+                            { userId: partnerIdToDivorce, value: interaction.user.id }
+                        ]
                     }
                 })
-                const otherUserId = marriage.userOneId === interaction.user.id
-                    ? marriage.userTwoId
-                    : marriage.userOneId
-                const user = await interaction.client.users.fetch(otherUserId)
-                await interaction.reply(`you broke up with **${user.displayName}** 💔`)
+                const u = await interaction.client.users.fetch(partnerIdToDivorce)
+                await interaction.reply(`you broke up with **${u.displayName}** 💔`)
                 break;
             }
             case "propose": {
-                if (marriage) {
-                    await interaction.reply({
-                        content: "how dare you cheat like that",
-                        flags: [MessageFlags.Ephemeral]
-                    })
-                    return;
-                }
                 const user = interaction.options.getUser("user", true)
                 if (!user || user.id === interaction.user.id || user.bot) {
                     await interaction.reply({
@@ -84,18 +110,21 @@ export default declareCommand({
                     })
                     return;
                 }
-                const existingMarriage = await config.prisma.marriage.findFirst({
+                
+                const existingPartner = await config.prisma.partner.findFirst({
                     where: {
-                        OR: [{ userOneId: user.id }, { userTwoId: user.id }]
+                        userId: interaction.user.id,
+                        value: user.id
                     }
                 })
-                if (existingMarriage) {
+                if (existingPartner) {
                     await interaction.reply({
-                        content: "that person's already married!",
+                        content: "you're already married to them!",
                         flags: [MessageFlags.Ephemeral]
                     })
                     return;
                 }
+                
                 if (proposals.find(p => p.from === interaction.user.id)) {
                     await interaction.reply({
                         content: "calm down sweetie",
@@ -153,19 +182,27 @@ export default declareCommand({
         }
         switch (interaction.customId) {
             case "yes": {
-                const marriage = await config.prisma.marriage.findFirst({
-                    where: {
-                        OR: [{ userOneId: proposal.from }, { userTwoId: proposal.from }, { userOneId: proposal.to }, { userTwoId: proposal.to }]
-                    }
+                const existing = await config.prisma.partner.findFirst({
+                    where: { userId: proposal.from, value: proposal.to }
                 })
-                if (marriage) return
+                if (existing) return
 
                 if (proposal.timeout) clearTimeout(proposal.timeout)
                 proposals.splice(proposals.indexOf(proposal), 1)
-                await config.prisma.marriage.create({
+                
+                await config.prisma.user.upsert({ where: { id: proposal.from }, update: {}, create: { id: proposal.from } })
+                await config.prisma.user.upsert({ where: { id: proposal.to }, update: {}, create: { id: proposal.to } })
+
+                await config.prisma.partner.create({
                     data: {
-                        userOneId: proposal.from,
-                        userTwoId: proposal.to
+                        userId: proposal.from,
+                        value: proposal.to
+                    }
+                })
+                await config.prisma.partner.create({
+                    data: {
+                        userId: proposal.to,
+                        value: proposal.from
                     }
                 })
                 await interaction.reply("i declare you two wife and wife!")
@@ -197,7 +234,7 @@ export default declareCommand({
                 .addUserOption(
                     new SlashCommandUserOption()
                         .setName("user")
-                        .setDescription("new wife (only wife)")
+                        .setDescription("new wife")
                         .setRequired(true)
                 )
         )
@@ -205,6 +242,12 @@ export default declareCommand({
             new SlashCommandSubcommandBuilder()
                 .setName("divorce")
                 .setDescription("just like in real life")
+                .addUserOption(
+                    new SlashCommandUserOption()
+                        .setName("user")
+                        .setDescription("who to divorce (required if you have multiple partners)")
+                        .setRequired(false)
+                )
         )
         .setContexts([
             InteractionContextType.BotDM,
