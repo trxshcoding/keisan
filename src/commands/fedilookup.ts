@@ -17,12 +17,15 @@ import {
     TextDisplayBuilder,
     ThumbnailBuilder
 } from "discord.js";
-import {chunkArray, createResizedEmoji, trimWhitespace} from "../util.ts";
-import {declareCommand} from "../command.ts";
-import {z} from "zod";
+import { chunkArray, createResizedEmoji, trimWhitespace } from "../util.ts";
+import { declareCommand } from "../command.ts";
+import { z } from "zod";
 
 const fediUserRegex = /@[^.@\s]+@(?:[^.@\s]+\.)+[^.@\s]+/
-const emojiRatelimits = [5, 3] as const;
+const emojiRatelimits = {
+    chunks: 3,
+    chunkSize: 5
+} as const;
 
 const fediNoteResponse = z.object({
     user: z.object({
@@ -71,7 +74,7 @@ export default declareCommand({
             shit = `https://${host}/@${user}`
         }
 
-        const {object, type} = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
+        const { object, type } = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${config.sharkeyToken}`,
@@ -92,12 +95,14 @@ export default declareCommand({
                 return;
             }
 
-            const emojiItems = Object.entries(resp.emojis).map(([name, link]) => ([`post_${name}`, link]))
-                .concat(resp.user.name ? Object.entries(resp.user.emojis).map(([name, link]) => ([`user_${name}`, link]))
-                    .filter(e => resp.user.name?.includes(e[0].replace(/^user_/, ""))) : []) as [string, string][]
+            const emojiItems = Object.entries(resp.emojis)
+                .concat(resp.user.name ?
+                    Object.entries(resp.user.emojis).filter((emoji, _, arr) => resp.user.name?.includes(emoji[0]) && !arr.find(e => emoji[0] === e[0])) :
+                    [])
+                .concat(Object.entries(resp.reactionEmojis)) as [string, string][]
             const emojis = {} as Record<string, ApplicationEmoji>
-            const emojiBatches = chunkArray(emojiItems, emojiRatelimits[0])
-            if (emojiBatches.length <= emojiRatelimits[1]) {
+            const emojiBatches = chunkArray(emojiItems, emojiRatelimits.chunkSize)
+            if (emojiBatches.length <= emojiRatelimits.chunks) {
                 for (const chunk of emojiBatches) {
                     const promise = await Promise.all(chunk.map(async ([name, link]) => ({
                         name,
@@ -126,8 +131,8 @@ export default declareCommand({
                                 why is it written like this? idfk
                                 */
                                 new TextDisplayBuilder().setContent(`## ${(resp.user.name || resp.user.username).replace(/:([\w-]+):/g, (_, name) => {
-                                    if (!emojis[`user_${name}`]) return _
-                                    else return emojis[`user_${name}`].toString()
+                                    if (!emojis[name]) return _
+                                    else return emojis[name].toString()
                                 })} (@${resp.user.username}@${resp.user.host === null ? config.sharkeyInstance : resp.user.host})`),
                             ),
                     ),
@@ -148,9 +153,16 @@ export default declareCommand({
             if (resp.text) {
                 mainComponent.addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(resp.text.replace(/:([\w-]+):/g, (_, name) => {
-                        if (!emojis[`post_${name}`]) return _
-                        else return emojis[`post_${name}`].toString()
+                        if (!emojis[name]) return _
+                        else return emojis[name].toString()
                     })),
+                )
+            }
+
+            if (resp.reactionCount > 0 || resp.renoteCount > 0) {
+                mainComponent.addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(`-# ${resp.renoteCount} renotes
+-# ${Object.entries(resp.reactions).map(([name, count]) => `${count} ${emojis[name.replace(/:/g, "")] || name}`).join("  ")}`),
                 )
             }
 
@@ -193,8 +205,8 @@ export default declareCommand({
 
             const emojiItems = resp.name ? Object.entries(resp.emojis) : [] as [string, string][]
             const emojis = {} as Record<string, ApplicationEmoji>
-            const emojiBatches = chunkArray(emojiItems, emojiRatelimits[0])
-            if (emojiBatches.length <= emojiRatelimits[1]) {
+            const emojiBatches = chunkArray(emojiItems, emojiRatelimits.chunkSize)
+            if (emojiBatches.length <= emojiRatelimits.chunks) {
                 for (const chunk of emojiBatches) {
                     const promise = await Promise.all(chunk.map(async ([name, link]) => ({
                         name,
