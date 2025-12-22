@@ -17,9 +17,9 @@ import {
     TextDisplayBuilder,
     ThumbnailBuilder
 } from "discord.js";
-import { chunkArray, createResizedEmoji, trimWhitespace } from "../util.ts";
-import { declareCommand } from "../command.ts";
-import { z } from "zod";
+import {chunkArray, createResizedEmoji, trimWhitespace} from "../util.ts";
+import {declareCommand} from "../command.ts";
+import {z} from "zod";
 
 const fediUserRegex = /@[^.@\s]+@(?:[^.@\s]+\.)+[^.@\s]+/
 const emojiRatelimits = [5, 3] as const;
@@ -42,7 +42,13 @@ const fediNoteResponse = z.object({
         isSensitive: z.boolean(),
         comment: z.string().nullable()
     })),
-    uri: z.string().url().nullable()
+    uri: z.string().url().nullable(),
+    renoteCount: z.number(),
+    repliesCount: z.number(),
+    reactionCount: z.number(),
+    reactions: z.record(z.string(), z.number()),
+    reactionEmojis: z.record(z.string(), z.string().url()),
+
 })
 const fediUserResponse = z.object({
     name: z.string().nullable(),
@@ -65,7 +71,7 @@ export default declareCommand({
             shit = `https://${host}/@${user}`
         }
 
-        const { object, type } = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
+        const {object, type} = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${config.sharkeyToken}`,
@@ -93,7 +99,10 @@ export default declareCommand({
             const emojiBatches = chunkArray(emojiItems, emojiRatelimits[0])
             if (emojiBatches.length <= emojiRatelimits[1]) {
                 for (const chunk of emojiBatches) {
-                    const promise = await Promise.all(chunk.map(async ([name, link]) => ({ name, emoji: await createResizedEmoji(interaction, link) })))
+                    const promise = await Promise.all(chunk.map(async ([name, link]) => ({
+                        name,
+                        emoji: await createResizedEmoji(interaction, link)
+                    })))
                     promise.forEach(e => {
                         if (!e.emoji) return
                         emojis[e.name] = e.emoji
@@ -187,7 +196,10 @@ export default declareCommand({
             const emojiBatches = chunkArray(emojiItems, emojiRatelimits[0])
             if (emojiBatches.length <= emojiRatelimits[1]) {
                 for (const chunk of emojiBatches) {
-                    const promise = await Promise.all(chunk.map(async ([name, link]) => ({ name, emoji: await createResizedEmoji(interaction, link) })))
+                    const promise = await Promise.all(chunk.map(async ([name, link]) => ({
+                        name,
+                        emoji: await createResizedEmoji(interaction, link)
+                    })))
                     promise.forEach(e => {
                         if (!e.emoji) return
                         emojis[e.name] = e.emoji
