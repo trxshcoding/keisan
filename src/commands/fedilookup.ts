@@ -17,9 +17,9 @@ import {
     TextDisplayBuilder,
     ThumbnailBuilder
 } from "discord.js";
-import { chunkArray, createResizedEmoji, trimWhitespace } from "../util.ts";
-import { declareCommand } from "../command.ts";
-import { z } from "zod";
+import {chunkArray, createResizedEmoji, trimWhitespace} from "../util.ts";
+import {declareCommand} from "../command.ts";
+import {z} from "zod";
 
 const fediUserRegex = /@[^.@\s]+@(?:[^.@\s]+\.)+[^.@\s]+/
 const emojiRatelimits = {
@@ -74,7 +74,7 @@ export default declareCommand({
             shit = `https://${host}/@${user}`
         }
 
-        const { object, type } = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
+        const {object, type} = await fetch(`https://${config.sharkeyInstance}/api/ap/show`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${config.sharkeyToken}`,
@@ -97,7 +97,7 @@ export default declareCommand({
 
             const emojiItems = Object.entries(resp.emojis)
                 .concat(resp.user.name ?
-                    Object.entries(resp.user.emojis).filter((emoji, _, arr) => resp.user.name?.includes(emoji[0]) && !arr.find(e => emoji[0] === e[0])) :
+                    Object.entries(resp.user.emojis).filter((emoji) => resp.user.name?.includes(`:${emoji[0]}:`) && !resp.emojis[emoji[0]]) :
                     [])
                 .concat(Object.entries(resp.reactionEmojis)) as [string, string][]
             const emojis = {} as Record<string, ApplicationEmoji>
@@ -203,7 +203,9 @@ export default declareCommand({
                 return;
             }
 
-            const emojiItems = resp.name ? Object.entries(resp.emojis) : [] as [string, string][]
+            const emojiItems = Object.entries(resp.emojis).filter((emoji) =>
+                (resp.name?.includes(`:${emoji[0]}:`) || resp.description?.includes(`:${emoji[0]}:`))
+            )
             const emojis = {} as Record<string, ApplicationEmoji>
             const emojiBatches = chunkArray(emojiItems, emojiRatelimits.chunkSize)
             if (emojiBatches.length <= emojiRatelimits.chunks) {
