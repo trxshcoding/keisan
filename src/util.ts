@@ -1,10 +1,11 @@
-import { type ChatInputCommandInteraction, type Client, ModalBuilder, SlashCommandBuilder } from "discord.js";
-import type { Results } from "linguist-js/dist/types";
-import { number } from "zod";
-import { Canvas } from "canvas";
-import { MusicBrainzApi } from "musicbrainz-api";
-import { hash } from "crypto";
+import {type ChatInputCommandInteraction, type Client, ModalBuilder, SlashCommandBuilder} from "discord.js";
+import type {Results} from "linguist-js/dist/types";
+import {number} from "zod";
+import {Canvas} from "canvas";
+import {MusicBrainzApi} from "musicbrainz-api";
+import {hash} from "crypto";
 import sharp from "sharp";
+import type {HistoryItem} from "./music.ts";
 
 export function chunkArray<T>(
     array: T[],
@@ -117,6 +118,7 @@ export function imageBullshittery(username: string) {
     }
     return canvas.toBuffer("image/png");
 }
+
 function getRandomArrayMember(arr: any[]) {
     if (arr.length === 0) {
         return null;
@@ -126,6 +128,7 @@ function getRandomArrayMember(arr: any[]) {
 
     return arr[randomIndex];
 }
+
 function createRandomBullshit(length: number) {
     let bullshit = ""
     const bullshitChars = 'qwertyuiopasdfghjklzxcvbnm1234567890'.split("")
@@ -184,3 +187,4 @@ export async function createResizedEmoji(interaction: ChatInputCommandInteractio
         return null;
     }
 }
+

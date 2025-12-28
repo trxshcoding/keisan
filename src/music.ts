@@ -7,11 +7,12 @@ import {
     ButtonBuilder,
     ButtonStyle,
     ButtonInteraction,
-    MessageFlags
+    MessageFlags, type ChatInputCommandInteraction
 } from "discord.js";
-import { z } from "zod";
-import type { Config } from "./config";
-import { escapeMarkdown } from "./util.ts";
+import {z} from "zod";
+import type {Config} from "./config";
+import {escapeMarkdown} from "./util.ts";
+import {createCanvas, loadImage, type CanvasRenderingContext2D} from "canvas";
 
 export interface Song {
     title: string;
@@ -20,6 +21,11 @@ export interface Song {
     thumbnailUrl: string;
     link: string;
 }
+
+export type HistoryItem = {
+    songName: string, artistName: string, albumName?: string, link?: string, mbid?: string
+}
+
 const songLinkShape = z.object({
     userCountry: z.string(),
     entitiesByUniqueId: z.record(
@@ -194,4 +200,53 @@ export function kyzaify(input: string): string {
     }
 
     return result;
+}
+
+
+export function calculateTextHeight(text: string, ctx: CanvasRenderingContext2D): number {
+    const size = ctx.measureText(text)
+    return size.actualBoundingBoxAscent + size.actualBoundingBoxDescent
+}
+
+export const truncateText = (text: string, maxWidth: number, ctx: CanvasRenderingContext2D) => {
+    const ellipsisWidth = ctx.measureText("...").width;
+    let width = ctx.measureText(text).width;
+    if (width <= maxWidth) {
+        return text;
+    }
+    let truncatedText = text;
+    let i = text.length;
+    while (width >= maxWidth - ellipsisWidth && i > 0) {
+        truncatedText = text.substring(0, i);
+        width = ctx.measureText(truncatedText).width;
+        i--;
+    }
+    return truncatedText + "...";
+};
+
+export async function generateNowplayingImage(interaction: ChatInputCommandInteraction, historyItem: HistoryItem, imageLink: string | null): Promise<Buffer<ArrayBufferLike>> {
+    const canvas = createCanvas(737, 286) // pulled these numbers out of my ass
+    const ctx = canvas.getContext('2d')
+    const IMAGESIZE = 180
+    const gradient = ctx.createLinearGradient(0, canvas.height, canvas.width, 0)
+    gradient.addColorStop(0, "#F2A0B2")
+    gradient.addColorStop(1, "#BF00BF")
+
+
+    ctx.font = "25px sans-serif"
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+
+    if (imageLink) {
+        const image = await loadImage(imageLink)
+        ctx.drawImage(image, 40, 40, IMAGESIZE, IMAGESIZE)
+    }
+    const songName = truncateText(historyItem.songName, canvas.width - 40 - IMAGESIZE - 40 - 20, ctx);
+    const artist = truncateText("by " + historyItem.artistName, canvas.width - 40 - IMAGESIZE - 40 - 20, ctx);
+    ctx.fillStyle = "black"
+
+    ctx.fillText(songName, 40 + IMAGESIZE + 20, 40 + calculateTextHeight(songName, ctx))
+    ctx.fillText(artist, 40 + IMAGESIZE + 20, 60 + calculateTextHeight(artist, ctx))
+    return canvas.toBuffer()
 }

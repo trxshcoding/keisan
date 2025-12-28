@@ -7,21 +7,29 @@ import {
     MessageFlags,
     InteractionContextType, type MessageActionRowComponentBuilder,
     SlashCommandBuilder,
-    type ApplicationEmoji
+    type ApplicationEmoji, AttachmentBuilder
 } from "discord.js";
 
-import { getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache, songView } from "../music.ts"
-import { hash, randomUUID } from "crypto"
-import { createResizedEmoji, escapeMarkdown, mbApi } from "../util.ts";
-import sharp from "sharp";
-import { declareCommand } from "../command.ts";
-import { z } from "zod";
+import {
+    generateNowplayingImage,
+    getSongOnPreferredProvider,
+    type HistoryItem,
+    itunesResponseShape,
+    lobotomizedSongButton,
+    musicCache,
+} from "../music.ts"
+import {createResizedEmoji, escapeMarkdown, mbApi} from "../util.ts";
+import {declareCommand} from "../command.ts";
+import {z} from "zod";
 
 const slashCommand = new SlashCommandBuilder()
     .setName("nowplaying")
     .setDescription("balls").setIntegrationTypes([
         ApplicationIntegrationType.UserInstall
     ])
+    .addBooleanOption(option => {
+        return option.setName("imagegen").setDescription("generate an image instead of text").setRequired(false)
+    })
     .addStringOption(option => {
         return option.setName("user").setDescription("username").setRequired(false)
     })
@@ -36,11 +44,9 @@ const slashCommand = new SlashCommandBuilder()
         InteractionContextType.Guild,
         InteractionContextType.PrivateChannel
     ])
-import type { IRelease } from "musicbrainz-api";
+import type {IRelease} from "musicbrainz-api";
 
-type HistoryItem = {
-    songName: string, artistName: string, albumName?: string, link?: string, mbid?: string
-}
+
 async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<HistoryItem | false | undefined> {
     if (!lastFMApiKey) {
         const res = await fetch(`https://api.listenbrainz.org/1/user/${username}/playing-now`).then((res) => res.json());
@@ -88,11 +94,11 @@ async function getMusicBrainzInfo(release: IRelease, songTitle: string): Promise
 
     const coverArtUrl = `https://coverartarchive.org/release/${release.id}/front`;
     try {
-        const response = await fetch(coverArtUrl, { method: 'HEAD' });
+        const response = await fetch(coverArtUrl, {method: 'HEAD'});
         if (!response.ok) {
             return null;
         }
-        return { songname, albumname, albumartlink: response.url };
+        return {songname, albumname, albumartlink: response.url};
     } catch (error) {
         console.error("Failed to fetch cover art:", error);
         return null;
@@ -102,13 +108,14 @@ async function getMusicBrainzInfo(release: IRelease, songTitle: string): Promise
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config): Promise<void> {
         await interaction.deferReply()
+        const shouldImageGen = interaction.options.getBoolean("imagegen") ?? false
         const otherUser = interaction.options.getUser("discord_user")
         let user: string | null;
         let useLastFM: boolean | null;
 
         if (otherUser) {
             const entry = await config.prisma.user.findFirst({
-                where: { id: otherUser.id }
+                where: {id: otherUser.id}
             });
             if (!entry?.musicUsername) {
                 await interaction.followUp({
@@ -121,7 +128,7 @@ export default declareCommand({
             useLastFM = !entry.musicUsesListenbrainz;
         } else {
             const entry = await config.prisma.user.findFirst({
-                where: { id: interaction.user.id }
+                where: {id: interaction.user.id}
             })
             user = interaction.options.getString("user");
             useLastFM = interaction.options.getBoolean("uselastfm");
@@ -150,7 +157,7 @@ export default declareCommand({
             return
         }
 
-        let { link, mbid } = nowPlaying
+        let {link, mbid} = nowPlaying
         let emoji: ApplicationEmoji | null = null
         let itunesCoverLink: string | undefined = undefined
 
@@ -181,7 +188,7 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
         }
 
         if (!link) {
-            const paramsObj = { entity: "song", term: `${nowPlaying.artistName} ${nowPlaying.songName}` };
+            const paramsObj = {entity: "song", term: `${nowPlaying.artistName} ${nowPlaying.songName}`};
             const searchParams = new URLSearchParams(paramsObj);
             const iTunesInfo = itunesResponseShape.safeParse(
                 await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()
@@ -222,7 +229,16 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
 
         nowPlaying.songName = preferredApi.title
         nowPlaying.artistName = preferredApi.artist
-
+        if (shouldImageGen) {
+            const image = await generateNowplayingImage(interaction, nowPlaying, preferredApi.thumbnailUrl ?? itunesCoverLink)
+            await interaction.followUp({
+                files: [
+                    new AttachmentBuilder(image)
+                        .setName('nowplaying.webp'),
+                ]
+            });
+            return
+        }
         if (!emoji && preferredApi.thumbnailUrl)
             emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
         else if (itunesCoverLink)
