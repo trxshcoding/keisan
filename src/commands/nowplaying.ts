@@ -18,9 +18,9 @@ import {
     lobotomizedSongButton,
     musicCache,
 } from "../music.ts"
-import {createResizedEmoji, escapeMarkdown, mbApi} from "../util.ts";
-import {declareCommand} from "../command.ts";
-import {z} from "zod";
+import { createResizedEmoji, escapeMarkdown, mbApi } from "../util.ts";
+import { declareCommand } from "../command.ts";
+import { z } from "zod";
 
 const slashCommand = new SlashCommandBuilder()
     .setName("nowplaying")
@@ -44,7 +44,7 @@ const slashCommand = new SlashCommandBuilder()
         InteractionContextType.Guild,
         InteractionContextType.PrivateChannel
     ])
-import type {IRelease} from "musicbrainz-api";
+import type { IRelease } from "musicbrainz-api";
 
 
 async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<HistoryItem | false | undefined> {
@@ -94,11 +94,11 @@ async function getMusicBrainzInfo(release: IRelease, songTitle: string): Promise
 
     const coverArtUrl = `https://coverartarchive.org/release/${release.id}/front`;
     try {
-        const response = await fetch(coverArtUrl, {method: 'HEAD'});
+        const response = await fetch(coverArtUrl, { method: 'HEAD' });
         if (!response.ok) {
             return null;
         }
-        return {songname, albumname, albumartlink: response.url};
+        return { songname, albumname, albumartlink: response.url };
     } catch (error) {
         console.error("Failed to fetch cover art:", error);
         return null;
@@ -115,7 +115,7 @@ export default declareCommand({
 
         if (otherUser) {
             const entry = await config.prisma.user.findFirst({
-                where: {id: otherUser.id}
+                where: { id: otherUser.id }
             });
             if (!entry?.musicUsername) {
                 await interaction.followUp({
@@ -128,7 +128,7 @@ export default declareCommand({
             useLastFM = !entry.musicUsesListenbrainz;
         } else {
             const entry = await config.prisma.user.findFirst({
-                where: {id: interaction.user.id}
+                where: { id: interaction.user.id }
             })
             user = interaction.options.getString("user");
             useLastFM = interaction.options.getBoolean("uselastfm");
@@ -157,7 +157,7 @@ export default declareCommand({
             return
         }
 
-        let {link, mbid} = nowPlaying
+        let { link, mbid } = nowPlaying
         let emoji: ApplicationEmoji | null = null
         let itunesCoverLink: string | undefined = undefined
 
@@ -188,7 +188,7 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
         }
 
         if (!link) {
-            const paramsObj = {entity: "song", term: `${nowPlaying.artistName} ${nowPlaying.songName}`};
+            const paramsObj = { entity: "song", term: `${nowPlaying.artistName} ${nowPlaying.songName}` };
             const searchParams = new URLSearchParams(paramsObj);
             const iTunesInfo = itunesResponseShape.safeParse(
                 await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()
@@ -207,6 +207,17 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
         }
 
         if (!link) {
+            if (shouldImageGen) {
+                const image = await generateNowplayingImage(nowPlaying, itunesCoverLink)
+                await interaction.followUp({
+                    files: [
+                        new AttachmentBuilder(image)
+                            .setName('nowplaying.webp'),
+                    ]
+                });
+                return
+            }
+
             if (!emoji && itunesCoverLink)
                 emoji = await createResizedEmoji(interaction, itunesCoverLink);
             await sendFallback(nowPlaying)
@@ -226,23 +237,8 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
             preferredApi,
             songlink
         }
-
         nowPlaying.songName = preferredApi.title
         nowPlaying.artistName = preferredApi.artist
-        if (shouldImageGen) {
-            const image = await generateNowplayingImage(interaction, nowPlaying, preferredApi.thumbnailUrl ?? itunesCoverLink)
-            await interaction.followUp({
-                files: [
-                    new AttachmentBuilder(image)
-                        .setName('nowplaying.webp'),
-                ]
-            });
-            return
-        }
-        if (!emoji && preferredApi.thumbnailUrl)
-            emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
-        else if (itunesCoverLink)
-            emoji = await createResizedEmoji(interaction, itunesCoverLink);
 
         const components = [
             new ActionRowBuilder<MessageActionRowComponentBuilder>()
@@ -253,6 +249,24 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
                         .setCustomId(songlink.pageUrl),
                 ),
         ];
+
+        if (shouldImageGen) {
+            const image = await generateNowplayingImage(nowPlaying, preferredApi.thumbnailUrl || itunesCoverLink)
+            await interaction.followUp({
+                files: [
+                    new AttachmentBuilder(image)
+                        .setName('nowplaying.webp'),
+                ],
+                components
+            });
+            return
+        }
+
+        if (!emoji && preferredApi.thumbnailUrl)
+            emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
+        else if (itunesCoverLink)
+            emoji = await createResizedEmoji(interaction, itunesCoverLink);
+
         await interaction.followUp({
             content: `### ${escapeMarkdown(nowPlaying.songName)} ${emoji}
 -# by ${escapeMarkdown(nowPlaying.artistName)}\
