@@ -255,7 +255,7 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
             await interaction.followUp({
                 files: [
                     new AttachmentBuilder(image)
-                        .setName('nowplaying.webp'),
+                        .setName('nowplaying.png'),
                 ],
                 components
             });
