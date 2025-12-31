@@ -177,12 +177,12 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
             const release = await mbApi.lookup('release', mbid, [
                 'recordings', 'artists', 'labels', 'url-rels', 'release-groups'
             ]);
-            const musicBrainzInfo = await getMusicBrainzInfo(release, nowPlaying.songName);
+            const musicBrainzInfo = await getMusicBrainzInfo(release, nowPlaying.songName).catch(() => { });
 
             if (musicBrainzInfo) {
                 nowPlaying.songName = musicBrainzInfo.songname
-                nowPlaying.albumName = musicBrainzInfo.albumname
-                if (!emoji)
+                if (musicBrainzInfo.albumname) nowPlaying.albumName = musicBrainzInfo.albumname
+                if (!emoji && musicBrainzInfo.albumartlink)
                     emoji = await createResizedEmoji(interaction, musicBrainzInfo.albumartlink);
             }
         }
@@ -200,7 +200,7 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
                     || iTunesInfo[0])
 
                 link = track.trackViewUrl
-                nowPlaying.albumName ??= track.collectionName
+                nowPlaying.albumName ||= track.collectionName
                 if (!emoji && track.artworkUrl100)
                     itunesCoverLink = track.artworkUrl100
             }
