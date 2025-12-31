@@ -321,12 +321,18 @@ function interpolateColor(color1: string, color2: string, factor: number): strin
     return rgbToHex(r, g, b);
 }
 
-const baseColors = {
-    left: '#2B2B30', // dark charcoal gray
-    mid1: '#4B2E6D', // deep muted purple
-    mid2: '#8A4A7C', // dusty purple-pink
-    right: '#C46A9A'  // soft pink (not too light)
+function generateGradient({ base, primary }: { base: string, primary: string }) {
+    return {
+        left: base,
+        mid1: interpolateColor(base, primary, 0.33),
+        mid2: interpolateColor(base, primary, 0.66),
+        right: primary
+    }
 }
+const baseColors = generateGradient({
+    base: '#2B2B2B',
+    primary: '#C46A9A'
+})
 
 async function extractPalette(buffer: Buffer): Promise<{ primary: string, base: string }> {
     try {
@@ -336,6 +342,7 @@ async function extractPalette(buffer: Buffer): Promise<{ primary: string, base: 
             .toBuffer({ resolveWithObject: true });
 
         let r = 0, g = 0, b = 0, count = 0;
+        let lr = 0, lg = 0, lb = 0, lCount = 0;
         let mutedLuminanceSum = 0, mutedCount = 0;
         const pixelCount = info.width * info.height;
         const channels = info.channels;
@@ -360,6 +367,14 @@ async function extractPalette(buffer: Buffer): Promise<{ primary: string, base: 
                 count++;
             }
 
+            // Accumulate light pixels for fallback Primary Color (for B&W images)
+            if (l > 100) {
+                lr += pr;
+                lg += pg;
+                lb += pb;
+                lCount++;
+            }
+
             // Accumulate muted pixels for Base Color (low saturation)
             if (s < 0.15) {
                 mutedLuminanceSum += l;
@@ -369,8 +384,10 @@ async function extractPalette(buffer: Buffer): Promise<{ primary: string, base: 
 
         // Determine Primary Color
         let primary = baseColors.right;
-        if (count > 0) {
+        if (count >= 5) {
             primary = rgbToHex(Math.round(r / count), Math.round(g / count), Math.round(b / count));
+        } else if (lCount > 0) {
+            primary = rgbToHex(Math.round(lr / lCount), Math.round(lg / lCount), Math.round(lb / lCount));
         }
 
         // Determine Base Gray based on muted brightness
@@ -403,12 +420,7 @@ export async function generateNowplayingImage(historyItem: HistoryItem, imageLin
             imageBuffer = Buffer.from(arrayBuffer);
             const { primary, base } = await extractPalette(imageBuffer);
 
-            colors = {
-                left: base,
-                mid1: interpolateColor(base, primary, 0.33),
-                mid2: interpolateColor(base, primary, 0.66),
-                right: primary
-            };
+            colors = generateGradient({ base, primary });
             textColor = interpolateColor(primary, "#FFFFFF", 0.85);
         } catch { }
     }
