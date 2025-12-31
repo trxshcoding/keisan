@@ -200,7 +200,8 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
                     || iTunesInfo[0])
 
                 link = track.trackViewUrl
-                nowPlaying.albumName ||= track.collectionName
+                if (!nowPlaying.albumName && track.collectionName?.replace(/ - (?:Single|EP)$/, "") !== track.trackName)
+                    nowPlaying.albumName = track.collectionName
                 if (!emoji && track.artworkUrl100)
                     itunesCoverLink = track.artworkUrl100
             }
