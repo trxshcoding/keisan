@@ -7,13 +7,19 @@ import {
     MessageFlags,
     InteractionContextType, type MessageActionRowComponentBuilder,
     SlashCommandBuilder,
-    type ApplicationEmoji
+    type ApplicationEmoji, AttachmentBuilder
 } from "discord.js";
 
-import { getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache, songView } from "../music.ts"
-import { hash, randomUUID } from "crypto"
+import {
+    generateNowplayingImage,
+    getSongOnPreferredProvider,
+    type HistoryItem,
+    itunesResponseShape,
+    deezerResponseShape,
+    lobotomizedSongButton,
+    musicCache,
+} from "../music.ts"
 import { createResizedEmoji, escapeMarkdown, mbApi } from "../util.ts";
-import sharp from "sharp";
 import { declareCommand } from "../command.ts";
 import { z } from "zod";
 
@@ -22,6 +28,9 @@ const slashCommand = new SlashCommandBuilder()
     .setDescription("balls").setIntegrationTypes([
         ApplicationIntegrationType.UserInstall
     ])
+    .addBooleanOption(option => {
+        return option.setName("imagegen").setDescription("generate an image instead of text").setRequired(false)
+    })
     .addStringOption(option => {
         return option.setName("user").setDescription("username").setRequired(false)
     })
@@ -38,9 +47,7 @@ const slashCommand = new SlashCommandBuilder()
     ])
 import type { IRelease } from "musicbrainz-api";
 
-type HistoryItem = {
-    songName: string, artistName: string, albumName?: string, link?: string, mbid?: string
-}
+
 async function getNowPlaying(username: string, lastFMApiKey?: string): Promise<HistoryItem | false | undefined> {
     if (!lastFMApiKey) {
         const res = await fetch(`https://api.listenbrainz.org/1/user/${username}/playing-now`).then((res) => res.json());
@@ -102,6 +109,7 @@ async function getMusicBrainzInfo(release: IRelease, songTitle: string): Promise
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config): Promise<void> {
         await interaction.deferReply()
+        const shouldImageGen = interaction.options.getBoolean("imagegen") ?? false
         const otherUser = interaction.options.getUser("discord_user")
         let user: string | null;
         let useLastFM: boolean | null;
@@ -152,56 +160,92 @@ export default declareCommand({
 
         let { link, mbid } = nowPlaying
         let emoji: ApplicationEmoji | null = null
-        let itunesCoverLink: string | undefined = undefined
+        let highQualityCoverLink: string | undefined = undefined
+        let lowQualityCoverLink: string | undefined = undefined
 
         if (nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "") === nowPlaying.songName)
             nowPlaying.albumName = ""
 
-        function sendFallback(nowPlaying: HistoryItem) {
-            return interaction.followUp({
+        async function sendFallback(nowPlaying: HistoryItem) {
+            await interaction.followUp({
                 content: `### ${escapeMarkdown(nowPlaying.songName)} ${emoji || ""}
 -# by ${escapeMarkdown(nowPlaying.artistName)}\
 ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
 -# couldn't get more info about this song`
             })
+            if (emoji) await emoji.delete()
+            return
         }
 
         if (mbid) {
             const release = await mbApi.lookup('release', mbid, [
                 'recordings', 'artists', 'labels', 'url-rels', 'release-groups'
             ]);
-            const musicBrainzInfo = await getMusicBrainzInfo(release, nowPlaying.songName);
+            const musicBrainzInfo = await getMusicBrainzInfo(release, nowPlaying.songName).catch(() => { });
 
             if (musicBrainzInfo) {
                 nowPlaying.songName = musicBrainzInfo.songname
-                nowPlaying.albumName = musicBrainzInfo.albumname
-                if (!emoji)
-                    emoji = await createResizedEmoji(interaction, musicBrainzInfo.albumartlink);
+                if (musicBrainzInfo.albumname && musicBrainzInfo.albumname.replace(/ - (?:Single|EP)$/, "") !== musicBrainzInfo.songname)
+                    nowPlaying.albumName = musicBrainzInfo.albumname
+                if (musicBrainzInfo.albumartlink)
+                    highQualityCoverLink = musicBrainzInfo.albumartlink
             }
         }
 
         if (!link) {
-            const paramsObj = { entity: "song", term: `${nowPlaying.artistName} ${nowPlaying.songName}` };
+            const paramsObj = { q: `artist:"${nowPlaying.artistName}" track:"${nowPlaying.songName}"` };
             const searchParams = new URLSearchParams(paramsObj);
-            const iTunesInfo = itunesResponseShape.safeParse(
-                await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()
-            ).data?.results
+            const deezerInfo = deezerResponseShape.safeParse(
+                await (await fetch(`https://api.deezer.com/search?${searchParams.toString()}`)).json()
+            ).data?.data
 
-            if (Array.isArray(iTunesInfo) && iTunesInfo[0]) {
-                const track = (iTunesInfo.find((res) => res.trackName === nowPlaying.songName)
-                    || iTunesInfo.find((res) => res.trackName.toLowerCase() === nowPlaying.songName.toLowerCase())
-                    || iTunesInfo[0])
+            if (Array.isArray(deezerInfo) && deezerInfo[0]) {
+                const track = (deezerInfo.find((res) => res.title === nowPlaying.songName)
+                    || deezerInfo.find((res) => res.title.toLowerCase() === nowPlaying.songName.toLowerCase())
+                    || deezerInfo[0])
 
-                link = track.trackViewUrl
-                nowPlaying.albumName ??= track.collectionName
-                if (!emoji && track.artworkUrl100)
-                    itunesCoverLink = track.artworkUrl100
+                link = track.link
+                if (!nowPlaying.albumName && track.album.title && track.album.title.replace(/ - (?:Single|EP)$/, "") !== track.title)
+                    nowPlaying.albumName = track.album.title
+                if (!highQualityCoverLink && track.album.cover_big)
+                    highQualityCoverLink = track.album.cover_big
+            }
+
+            if (!link) {
+                const paramsObj = { entity: "song", term: `${nowPlaying.artistName} ${nowPlaying.songName}` };
+                const searchParams = new URLSearchParams(paramsObj);
+                const iTunesInfo = itunesResponseShape.safeParse(
+                    await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()
+                ).data?.results
+
+                if (Array.isArray(iTunesInfo) && iTunesInfo[0]) {
+                    const track = (iTunesInfo.find((res) => res.trackName === nowPlaying.songName)
+                        || iTunesInfo.find((res) => res.trackName.toLowerCase() === nowPlaying.songName.toLowerCase())
+                        || iTunesInfo[0])
+
+                    link = track.trackViewUrl
+                    if (!nowPlaying.albumName && track.collectionName?.replace(/ - (?:Single|EP)$/, "") !== track.trackName)
+                        nowPlaying.albumName = track.collectionName
+                    if (track.artworkUrl100)
+                        lowQualityCoverLink = track.artworkUrl100
+                }
             }
         }
 
         if (!link) {
-            if (!emoji && itunesCoverLink)
-                emoji = await createResizedEmoji(interaction, itunesCoverLink);
+            if (shouldImageGen) {
+                const image = await generateNowplayingImage(nowPlaying, highQualityCoverLink || lowQualityCoverLink)
+                await interaction.followUp({
+                    files: [
+                        new AttachmentBuilder(image)
+                            .setName('nowplaying.png'),
+                    ]
+                });
+                return
+            }
+
+            if (!emoji && (highQualityCoverLink || lowQualityCoverLink))
+                emoji = await createResizedEmoji(interaction, highQualityCoverLink || lowQualityCoverLink!);
             await sendFallback(nowPlaying)
             return
         }
@@ -209,8 +253,8 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
         const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
         const preferredApi = getSongOnPreferredProvider(songlink, link!)
         if (!preferredApi) {
-            if (!emoji && itunesCoverLink)
-                emoji = await createResizedEmoji(interaction, itunesCoverLink);
+            if (!emoji && (highQualityCoverLink || lowQualityCoverLink))
+                emoji = await createResizedEmoji(interaction, highQualityCoverLink || lowQualityCoverLink!);
             await sendFallback(nowPlaying)
             return
         }
@@ -219,14 +263,8 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
             preferredApi,
             songlink
         }
-
         nowPlaying.songName = preferredApi.title
         nowPlaying.artistName = preferredApi.artist
-
-        if (!emoji && preferredApi.thumbnailUrl)
-            emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
-        else if (itunesCoverLink)
-            emoji = await createResizedEmoji(interaction, itunesCoverLink);
 
         const components = [
             new ActionRowBuilder<MessageActionRowComponentBuilder>()
@@ -237,8 +275,26 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
                         .setCustomId(songlink.pageUrl),
                 ),
         ];
+
+        if (shouldImageGen) {
+            const image = await generateNowplayingImage(nowPlaying, preferredApi.thumbnailUrl || highQualityCoverLink || lowQualityCoverLink)
+            await interaction.followUp({
+                files: [
+                    new AttachmentBuilder(image)
+                        .setName('nowplaying.png'),
+                ],
+                components
+            });
+            return
+        }
+
+        if (!emoji && preferredApi.thumbnailUrl)
+            emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
+        else if (highQualityCoverLink || lowQualityCoverLink)
+            emoji = await createResizedEmoji(interaction, highQualityCoverLink || lowQualityCoverLink!);
+
         await interaction.followUp({
-            content: `### ${escapeMarkdown(nowPlaying.songName)} ${emoji}
+            content: `### ${escapeMarkdown(nowPlaying.songName)} ${emoji || ""}
 -# by ${escapeMarkdown(nowPlaying.artistName)}\
 ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}`,
             components,

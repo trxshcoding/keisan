@@ -1,21 +1,21 @@
-import { escapeMarkdown } from '../util.ts';
+import { createResizedEmoji, escapeMarkdown } from '../util.ts';
 import {
     ActionRowBuilder,
-    ApplicationIntegrationType, ButtonBuilder, ButtonStyle,
+    ApplicationIntegrationType, AttachmentBuilder, ButtonBuilder, ButtonStyle,
     ChatInputCommandInteraction,
     InteractionContextType,
     SlashCommandBuilder,
     type MessageActionRowComponentBuilder
 } from "discord.js";
-import { getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache } from "../music.ts";
+import { generateNowplayingImage, getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache } from "../music.ts";
 import { NO_EXTRA_CONFIG } from "../config.ts";
-import { hash } from "crypto";
 import { declareCommand } from "../command.ts";
 
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config) {
         await interaction.deferReply()
         const search = interaction.options.getString("search", true).trim()
+        const shouldImageGen = interaction.options.getBoolean("imagegen") ?? false
         let link = "", albumName = ""
 
         if (search.match(/^https?:\/\//)) {
@@ -53,10 +53,7 @@ export default declareCommand({
             songlink
         }
 
-        const emoji = await interaction.client.application.emojis.create({
-            attachment: preferredApi.thumbnailUrl,
-            name: hash("md5", preferredApi.thumbnailUrl),
-        });
+        const emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl)
 
         const components = [
             new ActionRowBuilder<MessageActionRowComponentBuilder>()
@@ -67,13 +64,31 @@ export default declareCommand({
                         .setCustomId(songlink.pageUrl),
                 ),
         ];
+
+        if (shouldImageGen) {
+            const image = await generateNowplayingImage({
+                songName: preferredApi.title,
+                artistName: preferredApi.artist,
+                albumName
+            }, preferredApi.thumbnailUrl)
+
+            await interaction.followUp({
+                files: [
+                    new AttachmentBuilder(image)
+                        .setName('nowplaying.png'),
+                ],
+                components
+            });
+            return
+        }
+
         await interaction.followUp({
             content: `### ${escapeMarkdown(preferredApi.title)} ${emoji}
 -# by ${escapeMarkdown(preferredApi.artist)}${albumName ? ` - from ${escapeMarkdown(albumName)}` : ""}`,
             components,
         })
 
-        await emoji.delete()
+        await emoji?.delete()
         return
     },
     button: lobotomizedSongButton,
@@ -86,6 +101,9 @@ export default declareCommand({
         ])
         .addStringOption(option => {
             return option.setName("search").setDescription("smth you wanna search").setRequired(true);
+        })
+        .addBooleanOption(option => {
+            return option.setName("imagegen").setDescription("show result as an image");
         })
         .setContexts([
             InteractionContextType.BotDM,

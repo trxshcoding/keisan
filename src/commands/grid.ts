@@ -1,4 +1,4 @@
-import { declareCommand } from "../command.ts";
+import {declareCommand} from "../command.ts";
 import {
     ApplicationIntegrationType, AttachmentBuilder,
     ChatInputCommandInteraction,
@@ -8,9 +8,10 @@ import {
     type BufferResolvable
 } from "discord.js";
 import sharp from "sharp";
-import { Canvas, loadImage, type CanvasRenderingContext2D } from "canvas";
-import { z } from "zod";
+import {Canvas, loadImage, type CanvasRenderingContext2D} from "canvas";
+import {z} from "zod";
 import type Stream from "stream";
+import {truncateText} from "../music.ts";
 
 async function urlToDataURI(url: string) {
     const response = await fetch(url);
@@ -43,28 +44,12 @@ async function getPlayCount(username: string, useLastFM: boolean, apiKey?: strin
     if (useLastFM) {
         let response = await (await fetch(`https://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${username}&api_key=${apiKey}&format=json`)).json()
         return response.user.playcount
-    }
-    else {
+    } else {
         let response = await (await fetch(`https://api.listenbrainz.org/1/user/${username}/listen-count`)).json()
         return response.payload.count
     }
 }
 
-const truncateText = (text: string, maxWidth: number, ctx: CanvasRenderingContext2D) => {
-    const ellipsisWidth = ctx.measureText("...").width;
-    let width = ctx.measureText(text).width;
-    if (width <= maxWidth) {
-        return text;
-    }
-    let truncatedText = text;
-    let i = text.length;
-    while (width >= maxWidth - ellipsisWidth && i > 0) {
-        truncatedText = text.substring(0, i);
-        width = ctx.measureText(truncatedText).width;
-        i--;
-    }
-    return truncatedText + "...";
-};
 
 async function assembleLastFmGrid(username: string, gridSize: number, period: string, apiKey?: string) {
     const IMAGE_SIZE = 256;
@@ -85,11 +70,11 @@ async function assembleLastFmGrid(username: string, gridSize: number, period: st
     }
 
     const usefulinfo = res.topalbums.album.map((a: any) =>
-    ({
-        artist: a.artist.name,
-        name: a.name,
-        image: a.image.at(-1)!["#text"]
-    })
+        ({
+            artist: a.artist.name,
+            name: a.name,
+            image: a.image.at(-1)!["#text"]
+        })
     ).filter((a: any) => a.image).slice(0, gridSize ** 2);
 
     const canvas = new Canvas(IMAGE_SIZE * gridSize, IMAGE_SIZE * gridSize);
@@ -142,7 +127,7 @@ export default declareCommand({
 
         if (otherUser) {
             const entry = await config.prisma.user.findFirst({
-                where: { id: otherUser.id }
+                where: {id: otherUser.id}
             });
             if (!entry?.musicUsername) {
                 await interaction.followUp({
@@ -155,7 +140,7 @@ export default declareCommand({
             useLastFM = !entry.musicUsesListenbrainz;
         } else {
             const entry = await config.prisma.user.findFirst({
-                where: { id: interaction.user.id }
+                where: {id: interaction.user.id}
             })
             user = interaction.options.getString("user");
             useLastFM = interaction.options.getBoolean("uselastfm");
@@ -229,7 +214,7 @@ export default declareCommand({
 over the past ${periodChoices.find(c => c.value === period)!.name}`)
                     .setImage("attachment://hardcoremusiclistening.png")
                     .setColor(0xFF64C5)
-                    .setFooter({ text: `${playCount} scrobbles` })
+                    .setFooter({text: `${playCount} scrobbles`})
             ]
         });
 
