@@ -95,6 +95,20 @@ export const itunesResponseShape = z.object({
     }))
 })
 
+export const deezerResponseShape = z.object({
+    data: z.array(z.object({
+        title: z.string(),
+        link: z.string(),
+        artist: z.object({
+            name: z.string()
+        }),
+        album: z.object({
+            title: z.string(),
+            cover_big: z.string().optional(),
+        })
+    }))
+})
+
 export function songView(songlink: z.infer<typeof songLinkShape>, preferredApi: Song, albumName?: string) {
     const components = [
         new ContainerBuilder()

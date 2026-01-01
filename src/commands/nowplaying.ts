@@ -15,6 +15,7 @@ import {
     getSongOnPreferredProvider,
     type HistoryItem,
     itunesResponseShape,
+    deezerResponseShape,
     lobotomizedSongButton,
     musicCache,
 } from "../music.ts"
@@ -159,18 +160,21 @@ export default declareCommand({
 
         let { link, mbid } = nowPlaying
         let emoji: ApplicationEmoji | null = null
-        let itunesCoverLink: string | undefined = undefined
+        let highQualityCoverLink: string | undefined = undefined
+        let lowQualityCoverLink: string | undefined = undefined
 
         if (nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "") === nowPlaying.songName)
             nowPlaying.albumName = ""
 
-        function sendFallback(nowPlaying: HistoryItem) {
-            return interaction.followUp({
+        async function sendFallback(nowPlaying: HistoryItem) {
+            await interaction.followUp({
                 content: `### ${escapeMarkdown(nowPlaying.songName)} ${emoji || ""}
 -# by ${escapeMarkdown(nowPlaying.artistName)}\
 ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
 -# couldn't get more info about this song`
             })
+            if (emoji) await emoji.delete()
+            return
         }
 
         if (mbid) {
@@ -181,46 +185,67 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
 
             if (musicBrainzInfo) {
                 nowPlaying.songName = musicBrainzInfo.songname
-                if (musicBrainzInfo.albumname) nowPlaying.albumName = musicBrainzInfo.albumname
-                if (!emoji && musicBrainzInfo.albumartlink)
-                    emoji = await createResizedEmoji(interaction, musicBrainzInfo.albumartlink);
+                if (musicBrainzInfo.albumname && musicBrainzInfo.albumname.replace(/ - (?:Single|EP)$/, "") !== musicBrainzInfo.songname)
+                    nowPlaying.albumName = musicBrainzInfo.albumname
+                if (musicBrainzInfo.albumartlink)
+                    highQualityCoverLink = musicBrainzInfo.albumartlink
             }
         }
 
         if (!link) {
-            const paramsObj = { entity: "song", term: `${nowPlaying.artistName} ${nowPlaying.songName}` };
+            const paramsObj = { q: `artist:"${nowPlaying.artistName}" track:"${nowPlaying.songName}"` };
             const searchParams = new URLSearchParams(paramsObj);
-            const iTunesInfo = itunesResponseShape.safeParse(
-                await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()
-            ).data?.results
+            const deezerInfo = deezerResponseShape.safeParse(
+                await (await fetch(`https://api.deezer.com/search?${searchParams.toString()}`)).json()
+            ).data?.data
 
-            if (Array.isArray(iTunesInfo) && iTunesInfo[0]) {
-                const track = (iTunesInfo.find((res) => res.trackName === nowPlaying.songName)
-                    || iTunesInfo.find((res) => res.trackName.toLowerCase() === nowPlaying.songName.toLowerCase())
-                    || iTunesInfo[0])
+            if (Array.isArray(deezerInfo) && deezerInfo[0]) {
+                const track = (deezerInfo.find((res) => res.title === nowPlaying.songName)
+                    || deezerInfo.find((res) => res.title.toLowerCase() === nowPlaying.songName.toLowerCase())
+                    || deezerInfo[0])
 
-                link = track.trackViewUrl
-                if (!nowPlaying.albumName && track.collectionName?.replace(/ - (?:Single|EP)$/, "") !== track.trackName)
-                    nowPlaying.albumName = track.collectionName
-                if (!emoji && track.artworkUrl100)
-                    itunesCoverLink = track.artworkUrl100
+                link = track.link
+                if (!nowPlaying.albumName && track.album.title && track.album.title.replace(/ - (?:Single|EP)$/, "") !== track.title)
+                    nowPlaying.albumName = track.album.title
+                if (!highQualityCoverLink && track.album.cover_big)
+                    highQualityCoverLink = track.album.cover_big
+            }
+
+            if (!link) {
+                const paramsObj = { entity: "song", term: `${nowPlaying.artistName} ${nowPlaying.songName}` };
+                const searchParams = new URLSearchParams(paramsObj);
+                const iTunesInfo = itunesResponseShape.safeParse(
+                    await (await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`)).json()
+                ).data?.results
+
+                if (Array.isArray(iTunesInfo) && iTunesInfo[0]) {
+                    const track = (iTunesInfo.find((res) => res.trackName === nowPlaying.songName)
+                        || iTunesInfo.find((res) => res.trackName.toLowerCase() === nowPlaying.songName.toLowerCase())
+                        || iTunesInfo[0])
+
+                    link = track.trackViewUrl
+                    if (!nowPlaying.albumName && track.collectionName?.replace(/ - (?:Single|EP)$/, "") !== track.trackName)
+                        nowPlaying.albumName = track.collectionName
+                    if (track.artworkUrl100)
+                        lowQualityCoverLink = track.artworkUrl100
+                }
             }
         }
 
         if (!link) {
             if (shouldImageGen) {
-                const image = await generateNowplayingImage(nowPlaying, itunesCoverLink)
+                const image = await generateNowplayingImage(nowPlaying, highQualityCoverLink || lowQualityCoverLink)
                 await interaction.followUp({
                     files: [
                         new AttachmentBuilder(image)
-                            .setName('nowplaying.webp'),
+                            .setName('nowplaying.png'),
                     ]
                 });
                 return
             }
 
-            if (!emoji && itunesCoverLink)
-                emoji = await createResizedEmoji(interaction, itunesCoverLink);
+            if (!emoji && (highQualityCoverLink || lowQualityCoverLink))
+                emoji = await createResizedEmoji(interaction, highQualityCoverLink || lowQualityCoverLink!);
             await sendFallback(nowPlaying)
             return
         }
@@ -228,8 +253,8 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
         const songlink = await fetch(`https://api.song.link/v1-alpha.1/links?url=${link}`).then(a => a.json())
         const preferredApi = getSongOnPreferredProvider(songlink, link!)
         if (!preferredApi) {
-            if (!emoji && itunesCoverLink)
-                emoji = await createResizedEmoji(interaction, itunesCoverLink);
+            if (!emoji && (highQualityCoverLink || lowQualityCoverLink))
+                emoji = await createResizedEmoji(interaction, highQualityCoverLink || lowQualityCoverLink!);
             await sendFallback(nowPlaying)
             return
         }
@@ -252,7 +277,7 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
         ];
 
         if (shouldImageGen) {
-            const image = await generateNowplayingImage(nowPlaying, preferredApi.thumbnailUrl || itunesCoverLink)
+            const image = await generateNowplayingImage(nowPlaying, preferredApi.thumbnailUrl || highQualityCoverLink || lowQualityCoverLink)
             await interaction.followUp({
                 files: [
                     new AttachmentBuilder(image)
@@ -265,11 +290,11 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
 
         if (!emoji && preferredApi.thumbnailUrl)
             emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
-        else if (itunesCoverLink)
-            emoji = await createResizedEmoji(interaction, itunesCoverLink);
+        else if (highQualityCoverLink || lowQualityCoverLink)
+            emoji = await createResizedEmoji(interaction, highQualityCoverLink || lowQualityCoverLink!);
 
         await interaction.followUp({
-            content: `### ${escapeMarkdown(nowPlaying.songName)} ${emoji}
+            content: `### ${escapeMarkdown(nowPlaying.songName)} ${emoji || ""}
 -# by ${escapeMarkdown(nowPlaying.artistName)}\
 ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}`,
             components,
