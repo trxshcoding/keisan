@@ -11,7 +11,7 @@ import {
 } from "discord.js";
 import { z } from "zod";
 import type { Config } from "./config";
-import { escapeMarkdown } from "./util.ts";
+import { calculateTextHeight, escapeMarkdown, wrapText } from "./util.ts";
 import { createCanvas, loadImage, type CanvasRenderingContext2D } from "canvas";
 import sharp from "sharp";
 
@@ -217,28 +217,6 @@ export function kyzaify(input: string): string {
     return result;
 }
 
-
-export function calculateTextHeight(text: string, ctx: CanvasRenderingContext2D): number {
-    const size = ctx.measureText(text)
-    return size.actualBoundingBoxAscent + size.actualBoundingBoxDescent
-}
-
-export const truncateText = (text: string, maxWidth: number, ctx: CanvasRenderingContext2D) => {
-    const ellipsisWidth = ctx.measureText("...").width;
-    let width = ctx.measureText(text).width;
-    if (width <= maxWidth) {
-        return text;
-    }
-    let truncatedText = text;
-    let i = text.length;
-    while (width >= maxWidth - ellipsisWidth && i > 0) {
-        truncatedText = text.substring(0, i);
-        width = ctx.measureText(truncatedText).width;
-        i--;
-    }
-    return truncatedText + "...";
-};
-
 const coverArtPlaceholder = await loadImage("https://files.catbox.moe/piynyy.jpg")
 
 function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number, colors: { left: string, mid1: string, mid2: string, right: string }): CanvasRenderingContext2D {
@@ -421,7 +399,7 @@ async function extractPalette(buffer: Buffer): Promise<{ primary: string, base: 
 }
 
 export async function generateNowplayingImage(historyItem: HistoryItem, imageLink: string | undefined): Promise<Buffer<ArrayBufferLike>> {
-    const width = 1200, height = 480, padding = 60, imgSize = height - padding * 2, textPad = padding / 2;
+    const width = 1200, height = 480, padding = 60, imgSize = height - padding * 2;
 
     let colors = { ...baseColors };
     let textColor = interpolateColor(colors.right, "#FFFFFF", 0.85);
@@ -449,17 +427,24 @@ export async function generateNowplayingImage(historyItem: HistoryItem, imageLin
     ctx.drawImage(image, padding, padding, imgSize, imgSize)
 
     ctx.font = "bold 40px sans-serif";
-    const titleY = padding + calculateTextHeight(historyItem.songName, ctx) + 10;
-    const songName = truncateText(historyItem.songName, width - padding - imgSize - textPad, ctx);
-    ctx.fillText(songName, padding + imgSize + textPad, titleY);
+    const textMaxWidth = width - padding - imgSize - padding, textX = padding + imgSize + (padding / 2);
+    let heightCursor = padding + calculateTextHeight(historyItem.songName, ctx) + 10;
+    const songName = wrapText(historyItem.songName, textMaxWidth, ctx, 3);
+    for (const line of songName) {
+        ctx.fillText(line, textX, heightCursor);
+        heightCursor += 45;
+    }
 
     ctx.font = "30px sans-serif";
-    const artistY = titleY + 45;
-    const artist = truncateText("by " + historyItem.artistName, width - padding - imgSize - textPad, ctx);
-    ctx.fillText(artist, padding + imgSize + textPad, artistY);
+    const artist = wrapText("by " + historyItem.artistName, textMaxWidth, ctx, 2);
+    for (const line of artist) {
+        ctx.fillText(line, textX, heightCursor);
+        heightCursor += 35;
+    }
 
     ctx.fillStyle = colors.right;
-    ctx.fillRect(padding + imgSize + textPad, artistY + 20, 100, 4);
+    heightCursor -= 15;
+    ctx.fillRect(textX, heightCursor, 100, 4);
 
     if (historyItem.albumName) {
         ctx.fillStyle = textColor;
@@ -470,12 +455,12 @@ export async function generateNowplayingImage(historyItem: HistoryItem, imageLin
         const albumX = width - padding - albumWidth;
         const albumY = height - padding;
 
-        if (albumX > padding + imgSize + textPad) {
+        if (albumX > textX) {
             ctx.fillText(albumText, albumX, albumY);
         } else {
             // If it's too long, left align it near the image bottom
-            const truncatedAlbum = truncateText(albumText, width - padding - imgSize - padding - textPad, ctx);
-            ctx.fillText(truncatedAlbum, padding + imgSize + textPad, albumY);
+            const truncatedAlbum = wrapText(albumText, textMaxWidth - padding, ctx);
+            ctx.fillText(truncatedAlbum, textX, albumY);
         }
         ctx.globalAlpha = 1.0;
     }
