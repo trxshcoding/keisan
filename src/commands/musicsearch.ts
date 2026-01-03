@@ -7,7 +7,7 @@ import {
     SlashCommandBuilder,
     type MessageActionRowComponentBuilder
 } from "discord.js";
-import { generateNowplayingImage, getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache } from "../music.ts";
+import { deezerResponseShape, generateNowplayingImage, getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache } from "../music.ts";
 import { NO_EXTRA_CONFIG } from "../config.ts";
 import { declareCommand } from "../command.ts";
 
@@ -21,27 +21,42 @@ export default declareCommand({
         if (search.match(/^https?:\/\//)) {
             link = search
         } else {
-            const paramsObj = { entity: "song", term: search };
-            const searchParams = new URLSearchParams(paramsObj);
-            const itunesResponse = await fetch(`https://itunes.apple.com/search?${searchParams.toString()}`);
-            const itunesJson = await itunesResponse.json();
-            const iTunesInfo = itunesResponseShape.safeParse(itunesJson).data?.results;
-            if (!iTunesInfo) {
-                await interaction.followUp("couldn't find that")
-                return
+            const deezerInfo = deezerResponseShape.safeParse(
+                await (await fetch(`https://api.deezer.com/search/track?q=${encodeURIComponent(search)}`)).json()
+            ).data?.data
+
+            if (Array.isArray(deezerInfo) && deezerInfo[0]) {
+                const track = (deezerInfo.find((res) => res.title === search)
+                    || deezerInfo.find((res) => res.title.toLowerCase() === search.toLowerCase())
+                    || deezerInfo[0])
+
+                link = track.link
+                albumName = track.album.title.replace(/ - (?:Single|EP)$/, "") === track.album.title
+                    ? ""
+                    : track.album.title.replace(/ - (?:Single|EP)$/, "")
             }
 
-            const track = (iTunesInfo.find((res: any) => res.trackName === search)
-                || iTunesInfo.find((res: any) => res.trackName.toLowerCase() === search.toLowerCase())
-                || iTunesInfo[0])
-            if (!track) {
-                await interaction.followUp("couldn't find that")
-                return
+            if (!link) {
+                const iTunesSearchParams = new URLSearchParams({ entity: "song", term: search });
+                const iTunesJson = await (await fetch(`https://itunes.apple.com/search?${iTunesSearchParams.toString()}`)).json();
+                const iTunesInfo = itunesResponseShape.safeParse(iTunesJson).data?.results;
+                if (!iTunesInfo) {
+                    await interaction.followUp("couldn't find that")
+                    return
+                }
+
+                const track = (iTunesInfo.find(res => res.trackName === search)
+                    || iTunesInfo.find(res => res.trackName.toLowerCase() === search.toLowerCase())
+                    || iTunesInfo[0])
+                if (!track) {
+                    await interaction.followUp("couldn't find that")
+                    return
+                }
+                link = track.trackViewUrl
+                albumName = track.collectionName.replace(/ - (?:Single|EP)$/, "") === track.trackName
+                    ? ""
+                    : track.collectionName.replace(/ - (?:Single|EP)$/, "")
             }
-            link = track.trackViewUrl
-            albumName = track.collectionName.replace(/ - (?:Single|EP)$/, "") === track.trackName
-                ? ""
-                : track.collectionName.replace(/ - (?:Single|EP)$/, "")
         }
 
         let preferredApi, songlink
