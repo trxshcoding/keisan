@@ -1,4 +1,4 @@
-import {declareCommand} from "../command.ts";
+import { declareCommand } from "../command.ts";
 import {
     ApplicationIntegrationType, AttachmentBuilder,
     ChatInputCommandInteraction,
@@ -8,10 +8,10 @@ import {
     type BufferResolvable
 } from "discord.js";
 import sharp from "sharp";
-import {Canvas, loadImage, type CanvasRenderingContext2D} from "canvas";
-import {z} from "zod";
+import { Canvas, loadImage } from "canvas";
+import { z } from "zod";
 import type Stream from "stream";
-import {truncateText} from "../music.ts";
+import { wrapText } from "../util.ts";
 
 async function urlToDataURI(url: string) {
     const response = await fetch(url);
@@ -70,11 +70,11 @@ async function assembleLastFmGrid(username: string, gridSize: number, period: st
     }
 
     const usefulinfo = res.topalbums.album.map((a: any) =>
-        ({
-            artist: a.artist.name,
-            name: a.name,
-            image: a.image.at(-1)!["#text"]
-        })
+    ({
+        artist: a.artist.name,
+        name: a.name,
+        image: a.image.at(-1)!["#text"]
+    })
     ).filter((a: any) => a.image).slice(0, gridSize ** 2);
 
     const canvas = new Canvas(IMAGE_SIZE * gridSize, IMAGE_SIZE * gridSize);
@@ -108,8 +108,8 @@ async function assembleLastFmGrid(username: string, gridSize: number, period: st
         const artistY = y + IMAGE_SIZE;
         const albumY = artistY - lineHeight;
 
-        const albumName = truncateText(usefulinfo[i].name, IMAGE_SIZE - (padding * 2), ctx);
-        const artistName = truncateText(usefulinfo[i].artist, IMAGE_SIZE - (padding * 2), ctx);
+        const albumName = wrapText(usefulinfo[i].name, IMAGE_SIZE - (padding * 2), ctx);
+        const artistName = wrapText(usefulinfo[i].artist, IMAGE_SIZE - (padding * 2), ctx);
 
         ctx.fillText(albumName, textX, albumY);
         ctx.fillText(artistName, textX, artistY);
@@ -127,7 +127,7 @@ export default declareCommand({
 
         if (otherUser) {
             const entry = await config.prisma.user.findFirst({
-                where: {id: otherUser.id}
+                where: { id: otherUser.id }
             });
             if (!entry?.musicUsername) {
                 await interaction.followUp({
@@ -140,7 +140,7 @@ export default declareCommand({
             useLastFM = !entry.musicUsesListenbrainz;
         } else {
             const entry = await config.prisma.user.findFirst({
-                where: {id: interaction.user.id}
+                where: { id: interaction.user.id }
             })
             user = interaction.options.getString("user");
             useLastFM = interaction.options.getBoolean("uselastfm");
@@ -214,7 +214,7 @@ export default declareCommand({
 over the past ${periodChoices.find(c => c.value === period)!.name}`)
                     .setImage("attachment://hardcoremusiclistening.png")
                     .setColor(0xFF64C5)
-                    .setFooter({text: `${playCount} scrobbles`})
+                    .setFooter({ text: `${playCount} scrobbles` })
             ]
         });
 
