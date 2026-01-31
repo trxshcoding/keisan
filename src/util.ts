@@ -2,7 +2,7 @@ import { type ChatInputCommandInteraction, type Client, ModalBuilder, SlashComma
 import type { Results } from "linguist-js/dist/types";
 import { Canvas } from "canvas";
 import { MusicBrainzApi } from "musicbrainz-api";
-import { hash } from "crypto";
+import { createHash, hash } from "crypto";
 import sharp from "sharp";
 import { type CanvasRenderingContext2D } from "canvas";
 
@@ -185,6 +185,31 @@ export async function createResizedEmoji(interaction: ChatInputCommandInteractio
         console.error("Failed to create resized emoji:", error);
         return null;
     }
+}
+
+function xoshiro128ss(a: number, b: number, c: number, d: number) {
+    return function () {
+        let t = b << 9, r = b * 5;
+        r = (r << 7 | r >>> 25) * 9;
+        c ^= a;
+        d ^= b;
+        b ^= c;
+        a ^= d;
+        c ^= t;
+        d = d << 11 | d >>> 21;
+        return (r >>> 0) / 4294967296;
+    }
+}
+
+// keeping the name's legacy
+export function numberFaggtory(str: string) {
+    const hash = createHash("md5").update(str).digest()
+    const seeds = [] as number[]
+    for (let i = 0; i < 4; i++) {
+        seeds.push(hash.readUInt32BE(i * 4))
+    }
+
+    return xoshiro128ss(seeds[0], seeds[1], seeds[2], seeds[3])
 }
 
 export function calculateTextHeight(text: string, ctx: CanvasRenderingContext2D): number {
