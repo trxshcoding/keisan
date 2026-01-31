@@ -82,7 +82,7 @@ async function assembleLastFmGrid(username: string, gridSize: number, period: st
 
     const imagePromises = usefulinfo.map((info: any) => loadImage(info.image).catch((e) => {
         console.error(`Failed to load image ${info.image}`, e);
-        return loadImage("https://files.catbox.moe/4zscph.jpeg");
+        return loadImage("https://keisan.fuckyou.amy.rip/placeholder.png");
     }));
     const loadedImages = await Promise.all(imagePromises);
 

@@ -11,7 +11,7 @@ import {
 } from "discord.js";
 import { z } from "zod";
 import type { Config } from "./config";
-import { calculateTextHeight, escapeMarkdown, wrapText } from "./util.ts";
+import { calculateTextHeight, escapeMarkdown, numberFaggtory, wrapText } from "./util.ts";
 import { createCanvas, loadImage, type CanvasRenderingContext2D } from "canvas";
 import sharp from "sharp";
 
@@ -217,33 +217,45 @@ export function kyzaify(input: string): string {
     return result;
 }
 
-const coverArtPlaceholder = await loadImage("https://files.catbox.moe/piynyy.jpg")
+const coverArtPlaceholder = await loadImage("https://keisan.fuckyou.amy.rip/placeholder.png")
 
-function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number, colors: { left: string, mid1: string, mid2: string, right: string }): CanvasRenderingContext2D {
+const minWaveOffset = 15;
+function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number, colors: { left: string, mid1: string, mid2: string, right: string }, trackName?: string, waveMultiplier: number = 1): CanvasRenderingContext2D {
     const glowConfig = {
         amount: 20,
         color: 'rgba(0, 0, 0, 0.5)',
         offsetX: 10,
         offsetY: 0
     };
+    const waveOffsetScale = 75 * waveMultiplier;
+
+    const randomNumber = trackName ? numberFaggtory(trackName) : () => 0
+    const randomOffset = () => {
+        const sign = randomNumber() > 0.5 ? 1 : -1;
+        const mid = (waveOffsetScale + minWaveOffset) / 2;
+        const spread = (waveOffsetScale - minWaveOffset) / 2;
+        const triangle = (randomNumber() - 0.5) * spread;
+
+        return Math.floor((mid + triangle) * sign);
+    };
     const waves = [
         {
             color: colors.mid2,
             baseX: 0.72,
-            intensity: 120,
-            shiftTop: -20, shiftMid: 50, shiftBot: -10
+            intensity: 90 * (randomNumber() + 0.5) * waveMultiplier,
+            shiftTop: randomOffset(), shiftMid: randomOffset(), shiftBot: randomOffset()
         },
         {
             color: colors.mid1,
             baseX: 0.48,
-            intensity: 160,
-            shiftTop: 30, shiftMid: -40, shiftBot: 80
+            intensity: 120 * (randomNumber() + 0.5) * waveMultiplier,
+            shiftTop: randomOffset(), shiftMid: randomOffset(), shiftBot: randomOffset()
         },
         {
             color: colors.left,
             baseX: 0.28,
-            intensity: 110,
-            shiftTop: -10, shiftMid: 20, shiftBot: 20
+            intensity: 85 * (randomNumber() + 0.5) * waveMultiplier,
+            shiftTop: randomOffset(), shiftMid: randomOffset(), shiftBot: randomOffset()
         }
     ];
 
@@ -298,6 +310,14 @@ function hexToRgb(hex: string): { r: number, g: number, b: number } {
         g: parseInt(result[2], 16),
         b: parseInt(result[3], 16)
     } : { r: 0, g: 0, b: 0 };
+}
+
+function getSaturation(hex: string): number {
+    const { r, g, b } = hexToRgb(hex);
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (max === 0) return 0;
+    return (max - min) / max;
 }
 
 function rgbToHex(r: number, g: number, b: number): string {
@@ -419,12 +439,29 @@ export async function generateNowplayingImage(historyItem: HistoryItem, imageLin
 
     const canvas = createCanvas(width, height)
     const ctx = canvas.getContext('2d')
-    drawBackground(ctx, width, height, colors)
+
+    const minSaturation = 0.3, maxSaturation = 0.8; // dont change, needed to keep an equal range 0.75-1.25
+    const saturation = getSaturation(colors.right)
+    const clampedSaturation = Math.min(maxSaturation, Math.max(minSaturation, saturation))
+    const waveMultiplier = 0.75 + (clampedSaturation - minSaturation)
+
+    drawBackground(ctx, width, height, colors, historyItem.songName, waveMultiplier)
 
     ctx.fillStyle = textColor
 
     const image = imageBuffer ? await loadImage(imageBuffer) : coverArtPlaceholder
+    ctx.save()
+    ctx.beginPath()
+    const radius = 8
+    ctx.moveTo(padding + radius, padding)
+    ctx.arcTo(padding + imgSize, padding, padding + imgSize, padding + imgSize, radius)
+    ctx.arcTo(padding + imgSize, padding + imgSize, padding, padding + imgSize, radius)
+    ctx.arcTo(padding, padding + imgSize, padding, padding, radius)
+    ctx.arcTo(padding, padding, padding + imgSize, padding, radius)
+    ctx.closePath()
+    ctx.clip()
     ctx.drawImage(image, padding, padding, imgSize, imgSize)
+    ctx.restore()
 
     ctx.font = "bold 40px sans-serif";
     const textMaxWidth = width - padding - imgSize - padding, textX = padding + imgSize + (padding / 2);
