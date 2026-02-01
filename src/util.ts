@@ -1,10 +1,10 @@
-import { type ChatInputCommandInteraction, type Client, ModalBuilder, SlashCommandBuilder } from "discord.js";
-import type { Results } from "linguist-js/dist/types";
-import { Canvas } from "canvas";
-import { MusicBrainzApi } from "musicbrainz-api";
-import { createHash, hash } from "crypto";
+import {type ChatInputCommandInteraction, type Client, ModalBuilder, SlashCommandBuilder} from "discord.js";
+import type {Results} from "linguist-js/dist/types";
+import {Canvas} from "canvas";
+import {MusicBrainzApi} from "musicbrainz-api";
+import {createHash, hash} from "crypto";
 import sharp from "sharp";
-import { type CanvasRenderingContext2D } from "canvas";
+import {type CanvasRenderingContext2D} from "canvas";
 
 export function chunkArray<T>(
     array: T[],
@@ -173,9 +173,24 @@ export async function createResizedEmoji(interaction: ChatInputCommandInteractio
         }
         const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
 
-        const resizedImageBuffer = await sharp(imageBuffer)
+        let resizedImageBuffer = await sharp(imageBuffer, {animated: true})
             .resize(128, 128)
+            .gif({loop: 0})
             .toBuffer();
+
+        if (resizedImageBuffer.byteLength > 262144) {
+            resizedImageBuffer = await sharp(imageBuffer, {animated: true})
+                .resize(64, 64)
+                .gif({loop: 0})
+                .toBuffer();
+        }
+
+        if (resizedImageBuffer.byteLength > 262144) {
+            resizedImageBuffer = await sharp(imageBuffer, {animated: true})
+                .resize(32, 32)
+                .gif({loop: 0})
+                .toBuffer();
+        }
 
         return await interaction.client.application.emojis.create({
             attachment: resizedImageBuffer,
@@ -307,4 +322,3 @@ export function wrapText(text: string, maxWidth: number, ctx: CanvasRenderingCon
 
     return lines;
 }
-
