@@ -43,7 +43,6 @@ const songLinkShape = z.object({
     linksByPlatform: z.record(
         z.string(),
         z.object({
-            country: z.string(),
             url: z.string().url(),
             entityUniqueId: z.string(),
         }))
