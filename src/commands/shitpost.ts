@@ -6,9 +6,9 @@ import {
 } from "discord.js";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "url";
-import { declareCommand } from "../command.ts";
-import { NO_EXTRA_CONFIG } from "../config.ts";
+import {fileURLToPath} from "url";
+import {declareCommand} from "../command.ts";
+import {NO_EXTRA_CONFIG} from "../config.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,9 +31,13 @@ export default declareCommand({
         const shitpostwewant = user.shitposts.find((a: { name: string; }) => {
             return a.name === fileName
         })
-        if (!shitpostwewant)
+        if (!shitpostwewant) {
+            await interaction.editReply({
+                content: "there's no shitpost with that name"
+            });
             return;
-        const attachment = new AttachmentBuilder(Buffer.from(shitpostwewant.content), { name: fileName });
+        }
+        const attachment = new AttachmentBuilder(Buffer.from(shitpostwewant.content), {name: fileName});
         await interaction.editReply({
             files: [attachment]
         });
@@ -54,7 +58,7 @@ export default declareCommand({
         const posts = user.shitposts
         const filteredFiles = posts
             .filter(choice => choice.name.toLowerCase().includes(focusedValue))
-            .map(a=> {
+            .map(a => {
                 return {
                     name: a.name,
                     value: a.name
