@@ -319,6 +319,11 @@ function getSaturation(hex: string): number {
     return (max - min) / max;
 }
 
+function getLuminance(hex: string): number {
+    const { r, g, b } = hexToRgb(hex);
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
 function rgbToHex(r: number, g: number, b: number): string {
     return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
@@ -483,9 +488,12 @@ export async function generateNowplayingImage(historyItem: HistoryItem, imageLin
     ctx.fillRect(textX, heightCursor, 100, 4);
 
     if (historyItem.albumName) {
-        ctx.fillStyle = textColor;
+        const darkTextColor = interpolateColor(colors.left, "#000000", 0.85)
+        const albumTextColor = getLuminance(colors.right) > 0.65 ? darkTextColor : textColor;
+        ctx.fillStyle = albumTextColor;
         ctx.font = "italic 24px sans-serif";
         ctx.globalAlpha = 0.8;
+
         const albumText = "from " + historyItem.albumName;
         const albumWidth = ctx.measureText(albumText).width;
         const albumX = width - padding - albumWidth;
