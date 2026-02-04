@@ -7,18 +7,22 @@ import {
     SlashCommandBuilder
 } from "discord.js";
 import {type Config, NO_EXTRA_CONFIG} from "../config.ts";
-import {mBArtistResponseShape, mBSearchResponseShape} from "../music.ts";
+import {lFmArtistResponseShape, mBSearchResponseShape} from "../music.ts";
 import {z} from "zod";
 
 
-async function getNowPlayingArtist(username: string, lastFMApiKey?: string) {
-    if (!lastFMApiKey) {
+async function getNowPlayingArtist(username: string, lastFMApiKey: string, shoulduseLastfm: boolean) {
+    if (!shoulduseLastfm) {
         const res = await fetch(`https://api.listenbrainz.org/1/user/${username}/playing-now`).then((res) => res.json());
         if (!res?.payload) return
         else if (res.payload.count === 0) return false
         const bwah = await searchMusicBrainzArtist(res.payload.listens[0].track_metadata.artist_name)
         if (!bwah) return
-        return await getMusicBrainzArtist(bwah.id)
+        const thing = await getLastfmArtist(bwah.id, lastFMApiKey)
+        if (thing === false) {
+            return bwah
+        }
+        return thing
     } else {
         return
     }
@@ -38,16 +42,13 @@ async function searchMusicBrainzArtist(artistName: string) {
     return maybeArtist.data.artists[0]
 }
 
-async function getMusicBrainzArtist(artistMbid: string) {
-    const resp = await fetch(`https://musicbrainz.org/ws/2/artist/${artistMbid}?fmt=json`, {
-        headers: {
-            'User-Agent': 'keisan/1.0.0 ( amy@amy.rip )'
-        }
-    }).then(a => a.json())
-    console.log(resp)
-    const maybeArtist = mBArtistResponseShape.safeParse(resp)
+async function getLastfmArtist(artistMbid: string, lastfmKey: string) {
+    const resp = await fetch(`https://ws.audioscrobbler.com/2.0/?method=artist.getInfo&mbid=${artistMbid}&api_key=${lastfmKey}&format=json&limit=1`).then(a => a.json())
+    console.log(resp);
+    const maybeArtist = lFmArtistResponseShape.safeParse(resp)
+    console.log(maybeArtist.data)
     if (!maybeArtist.success) {
-        return
+        return false
     }
     return maybeArtist.data
 }
@@ -93,7 +94,7 @@ export default declareCommand({
             return
         }
 
-        const nowPlayingArtist = await getNowPlayingArtist(user, useLastFM ? config.lastFMApiKey : undefined)
+        const nowPlayingArtist = await getNowPlayingArtist(user, config.lastFMApiKey, useLastFM)
 
         if (!nowPlayingArtist) {
             await interaction.followUp({
@@ -102,7 +103,6 @@ export default declareCommand({
             })
             return
         }
-        await interaction.followUp(`${nowPlayingArtist.name} from ${nowPlayingArtist.country}, with the id ${nowPlayingArtist.id}. has the gender ${nowPlayingArtist.gender}`)
 
     },
     dependsOn: z.object({

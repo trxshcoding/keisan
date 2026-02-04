@@ -122,34 +122,42 @@ export const mBSearchResponseShape = z.object({
     }))
 })
 
-export const mBArtistResponseShape = z.object({
-    "begin-area": z.string().nullable(),
-    "gender-id": z.string().uuid().nullable(),
-    gender: z.string().nullable(),
-    type: z.string(),
-    ipis: z.array(z.string()),
-    area: z.object({
+export const lFmArtistResponseShape = z.object({
+    artist: z.object({
         name: z.string(),
-        "sort-name": z.string(),
-        id: z.string().uuid(),
-        type: z.string().nullable(),
-        "type-id": z.string().uuid().nullable(),
-        disambiguation: z.string(),
-    }).nullable(),
-    "sort-name": z.string(),
-    name: z.string(),
-    id: z.string().uuid(),
-    country: z.string().length(2), // e.g., "CA"
-    "end-area": z.string().nullable(),
-    "life-span": z.object({
-        begin: z.string().nullable(),
-        end: z.string().nullable(),
-        ended: z.boolean(),
-    }),
-    "type-id": z.string().uuid(),
-    disambiguation: z.string(),
-    isnis: z.array(z.string()),
-});
+        mbid: z.string(),
+        url: z.string(),
+        image: z.array(z.object({"#text": z.string(), size: z.string()})),
+        streamable: z.string(),
+        ontour: z.string(),
+        stats: z.object({listeners: z.string(), playcount: z.string()}),
+        similar: z.object({
+            artist: z.array(
+                z.object({
+                    name: z.string(),
+                    url: z.string(),
+                    image: z.array(z.object({"#text": z.string(), size: z.string()}))
+                })
+            )
+        }),
+        tags: z.object({
+            tag: z.array(z.object({name: z.string(), url: z.string()}))
+        }),
+        bio: z.object({
+            links: z.object({
+                link: z.object({
+                    "#text": z.string(),
+                    rel: z.string(),
+                    href: z.string()
+                })
+            }),
+            published: z.string(),
+            summary: z.string(),
+            content: z.string()
+        })
+    })
+})
+
 
 export function songView(songlink: z.infer<typeof songLinkShape>, preferredApi: Song, albumName?: string) {
     const components = [
