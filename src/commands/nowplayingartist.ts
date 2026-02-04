@@ -1,4 +1,4 @@
-import {declareCommand} from "../command.ts";
+import { declareCommand } from "../command.ts";
 import {
     ApplicationIntegrationType,
     ChatInputCommandInteraction,
@@ -6,25 +6,38 @@ import {
     MessageFlags,
     SlashCommandBuilder
 } from "discord.js";
-import {type Config, NO_EXTRA_CONFIG} from "../config.ts";
-import {lFmArtistResponseShape, mBSearchResponseShape} from "../music.ts";
-import {z} from "zod";
+import { type Config, NO_EXTRA_CONFIG } from "../config.ts";
+import { lFmArtistResponseShape, mBSearchResponseShape } from "../music.ts";
+import { z } from "zod";
 
 
 async function getNowPlayingArtist(username: string, lastFMApiKey: string, shoulduseLastfm: boolean) {
     if (!shoulduseLastfm) {
         const res = await fetch(`https://api.listenbrainz.org/1/user/${username}/playing-now`).then((res) => res.json());
-        if (!res?.payload) return
-        else if (res.payload.count === 0) return false
-        const bwah = await searchMusicBrainzArtist(res.payload.listens[0].track_metadata.artist_name)
-        if (!bwah) return
-        const thing = await getLastfmArtist(bwah.id, lastFMApiKey)
-        if (thing === false) {
-            return bwah
+        if (!res?.payload || res.payload.count === 0) return
+        const searchRes = await searchMusicBrainzArtist(res.payload.listens[0].track_metadata.artist_name)
+        if (!searchRes) return
+
+        const lastFmRes = await getLastfmArtist(res.payload.listens[0].track_metadata.artist_mbids[0] || searchRes.id, lastFMApiKey)
+        if (lastFmRes === false) {
+            return { partial: true, ...searchRes }
         }
-        return thing
+        return { ...lastFmRes.artist }
     } else {
-        return
+        const res = await fetch(`https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${lastFMApiKey}&limit=1&format=json`)
+            .then((res) => res.json());
+        if (!res?.recenttracks || !res.recenttracks?.track?.[0]) return
+        else {
+            const track = res.recenttracks.track[0]
+            const searchRes = await searchMusicBrainzArtist(track.artist["#text"])
+            if (!searchRes) return
+
+            const lastFmRes = await getLastfmArtist(track.artist.mbid || searchRes.id, lastFMApiKey)
+            if (lastFmRes === false) {
+                return { partial: true, ...searchRes }
+            }
+            return { ...lastFmRes.artist }
+        }
     }
 }
 
@@ -44,9 +57,7 @@ async function searchMusicBrainzArtist(artistName: string) {
 
 async function getLastfmArtist(artistMbid: string, lastfmKey: string) {
     const resp = await fetch(`https://ws.audioscrobbler.com/2.0/?method=artist.getInfo&mbid=${artistMbid}&api_key=${lastfmKey}&format=json&limit=1`).then(a => a.json())
-    console.log(resp);
     const maybeArtist = lFmArtistResponseShape.safeParse(resp)
-    console.log(maybeArtist.data)
     if (!maybeArtist.success) {
         return false
     }
@@ -62,7 +73,7 @@ export default declareCommand({
 
         if (otherUser) {
             const entry = await config.prisma.user.findFirst({
-                where: {id: otherUser.id}
+                where: { id: otherUser.id }
             });
             if (!entry?.musicUsername) {
                 await interaction.followUp({
@@ -75,7 +86,7 @@ export default declareCommand({
             useLastFM = !entry.musicUsesListenbrainz;
         } else {
             const entry = await config.prisma.user.findFirst({
-                where: {id: interaction.user.id}
+                where: { id: interaction.user.id }
             })
             user = interaction.options.getString("user");
             useLastFM = interaction.options.getBoolean("uselastfm");
@@ -103,7 +114,17 @@ export default declareCommand({
             })
             return
         }
-
+        if ("partial" in nowPlayingArtist) {
+            await interaction.followUp({
+                content: `${nowPlayingArtist.name} (${nowPlayingArtist.id})
+-# couldn't find more info`
+            })
+        } else {
+            await interaction.followUp({
+                content: `${nowPlayingArtist.name} (${nowPlayingArtist.mbid})
+${nowPlayingArtist.tags.tag.map(t => t.name).join(", ")}`
+            })
+        }
     },
     dependsOn: z.object({
         lastFMApiKey: z.string()
