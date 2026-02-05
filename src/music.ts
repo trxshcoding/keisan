@@ -9,10 +9,10 @@ import {
     ButtonInteraction,
     MessageFlags, type ChatInputCommandInteraction
 } from "discord.js";
-import { z } from "zod";
-import type { Config } from "./config";
-import { calculateTextHeight, escapeMarkdown, numberFaggtory, wrapText } from "./util.ts";
-import { createCanvas, loadImage, type CanvasRenderingContext2D } from "canvas";
+import {z} from "zod";
+import type {Config} from "./config";
+import {calculateTextHeight, escapeMarkdown, numberFaggtory, wrapText} from "./util.ts";
+import {createCanvas, loadImage, type CanvasRenderingContext2D} from "canvas";
 import sharp from "sharp";
 
 export interface Song {
@@ -107,6 +107,56 @@ export const deezerResponseShape = z.object({
         })
     }))
 })
+
+export const mBSearchResponseShape = z.object({
+    created: z.coerce.date(),
+    count: z.number(),
+    offset: z.number(),
+    artists: z.array(z.object({
+        id: z.string(),
+        type: z.string().optional(),
+        "type-id": z.string().optional(),
+        score: z.number().optional(),
+        name: z.string().optional()
+    }))
+})
+
+export const lFmArtistResponseShape = z.object({
+    artist: z.object({
+        name: z.string(),
+        mbid: z.string(),
+        url: z.string(),
+        image: z.array(z.object({"#text": z.string(), size: z.string()})),
+        streamable: z.string(),
+        ontour: z.string(),
+        stats: z.object({listeners: z.string(), playcount: z.string()}),
+        similar: z.object({
+            artist: z.array(
+                z.object({
+                    name: z.string(),
+                    url: z.string(),
+                    image: z.array(z.object({"#text": z.string(), size: z.string()}))
+                })
+            )
+        }),
+        tags: z.object({
+            tag: z.array(z.object({name: z.string(), url: z.string()}))
+        }),
+        bio: z.object({
+            links: z.object({
+                link: z.object({
+                    "#text": z.string(),
+                    rel: z.string(),
+                    href: z.string()
+                })
+            }),
+            published: z.string(),
+            summary: z.string(),
+            content: z.string()
+        })
+    })
+})
+
 
 export function songView(songlink: z.infer<typeof songLinkShape>, preferredApi: Song, albumName?: string) {
     const components = [
@@ -219,7 +269,13 @@ export function kyzaify(input: string): string {
 const coverArtPlaceholder = await loadImage("https://keisan.fuckyou.amy.rip/placeholder.png")
 
 const minWaveOffset = 15;
-function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number, colors: { left: string, mid1: string, mid2: string, right: string }, trackName?: string, waveMultiplier: number = 1): CanvasRenderingContext2D {
+
+function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number, colors: {
+    left: string,
+    mid1: string,
+    mid2: string,
+    right: string
+}, trackName?: string, waveMultiplier: number = 1): CanvasRenderingContext2D {
     const glowConfig = {
         amount: 20,
         color: 'rgba(0, 0, 0, 0.5)',
@@ -268,9 +324,12 @@ function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number, col
         ctx.moveTo(0, 0);
 
         const topX = (w * wave.baseX) + wave.shiftTop;
-        const startX = topX; const startY = 0;
-        const midX = (w * wave.baseX) + wave.shiftMid; const midY = h * 0.5;
-        const endX = (w * wave.baseX) + wave.shiftBot; const endY = h;
+        const startX = topX;
+        const startY = 0;
+        const midX = (w * wave.baseX) + wave.shiftMid;
+        const midY = h * 0.5;
+        const endX = (w * wave.baseX) + wave.shiftBot;
+        const endY = h;
 
         ctx.lineTo(topX, 0);
         ctx.bezierCurveTo(
@@ -308,11 +367,11 @@ function hexToRgb(hex: string): { r: number, g: number, b: number } {
         r: parseInt(result[1], 16),
         g: parseInt(result[2], 16),
         b: parseInt(result[3], 16)
-    } : { r: 0, g: 0, b: 0 };
+    } : {r: 0, g: 0, b: 0};
 }
 
 function getSaturation(hex: string): number {
-    const { r, g, b } = hexToRgb(hex);
+    const {r, g, b} = hexToRgb(hex);
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
     if (max === 0) return 0;
@@ -337,7 +396,7 @@ function interpolateColor(color1: string, color2: string, factor: number): strin
     return rgbToHex(r, g, b);
 }
 
-function generateGradient({ base, primary }: { base: string, primary: string }) {
+function generateGradient({base, primary}: { base: string, primary: string }) {
     return {
         left: base,
         mid1: interpolateColor(base, primary, 0.33),
@@ -345,6 +404,7 @@ function generateGradient({ base, primary }: { base: string, primary: string }) 
         right: primary
     }
 }
+
 const baseColors = generateGradient({
     base: '#2B2B2B',
     primary: '#C46A9A'
@@ -352,10 +412,10 @@ const baseColors = generateGradient({
 
 async function extractPalette(buffer: Buffer): Promise<{ primary: string, base: string }> {
     try {
-        const { data, info } = await sharp(buffer)
-            .resize(32, 32, { fit: 'cover' })
+        const {data, info} = await sharp(buffer)
+            .resize(32, 32, {fit: 'cover'})
             .raw()
-            .toBuffer({ resolveWithObject: true });
+            .toBuffer({resolveWithObject: true});
 
         let r = 0, g = 0, b = 0, count = 0;
         let lr = 0, lg = 0, lb = 0, lCount = 0;
@@ -416,16 +476,16 @@ async function extractPalette(buffer: Buffer): Promise<{ primary: string, base: 
             base = rgbToHex(targetLuminance, targetLuminance, targetLuminance);
         }
 
-        return { primary, base };
+        return {primary, base};
     } catch (e) {
-        return { primary: baseColors.right, base: baseColors.left };
+        return {primary: baseColors.right, base: baseColors.left};
     }
 }
 
 export async function generateNowplayingImage(historyItem: HistoryItem, imageLink: string | undefined): Promise<Buffer<ArrayBufferLike>> {
     const width = 1200, height = 480, padding = 60, imgSize = height - padding * 2;
 
-    let colors = { ...baseColors };
+    let colors = {...baseColors};
     let textColor = interpolateColor(colors.right, "#FFFFFF", 0.85);
     let imageBuffer: Buffer | undefined;
 
@@ -434,11 +494,12 @@ export async function generateNowplayingImage(historyItem: HistoryItem, imageLin
             const response = await fetch(imageLink);
             const arrayBuffer = await response.arrayBuffer();
             imageBuffer = Buffer.from(arrayBuffer);
-            const { primary, base } = await extractPalette(imageBuffer);
+            const {primary, base} = await extractPalette(imageBuffer);
 
-            colors = generateGradient({ base, primary });
+            colors = generateGradient({base, primary});
             textColor = interpolateColor(primary, "#FFFFFF", 0.85);
-        } catch { }
+        } catch {
+        }
     }
 
     const canvas = createCanvas(width, height)
