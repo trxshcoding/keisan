@@ -1,4 +1,4 @@
-import { declareCommand } from "../command.ts";
+import {declareCommand} from "../command.ts";
 import {
     ApplicationIntegrationType,
     ChatInputCommandInteraction,
@@ -6,9 +6,8 @@ import {
     MessageFlags,
     SlashCommandBuilder
 } from "discord.js";
-import { type Config, NO_EXTRA_CONFIG } from "../config.ts";
-import { lFmArtistResponseShape, mBSearchResponseShape } from "../music.ts";
-import { z } from "zod";
+import {lFmArtistResponseShape, mBSearchResponseShape} from "../music.ts";
+import {z} from "zod";
 
 
 async function getNowPlayingArtist(username: string, lastFMApiKey: string, shoulduseLastfm: boolean) {
@@ -18,11 +17,11 @@ async function getNowPlayingArtist(username: string, lastFMApiKey: string, shoul
         const searchRes = await searchMusicBrainzArtist(res.payload.listens[0].track_metadata.artist_name)
         if (!searchRes) return
 
-        const lastFmRes = await getLastfmArtist(res.payload.listens[0].track_metadata.artist_mbids[0] || searchRes.id, lastFMApiKey)
+        const lastFmRes = await getLastfmArtist(res.payload.listens[0].track_metadata.artist_mbids?.[0] ?? searchRes.id, lastFMApiKey)
         if (lastFmRes === false) {
-            return { partial: true, ...searchRes }
+            return {partial: true, ...searchRes}
         }
-        return { ...lastFmRes.artist }
+        return {...lastFmRes.artist}
     } else {
         const res = await fetch(`https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${lastFMApiKey}&limit=1&format=json`)
             .then((res) => res.json());
@@ -34,9 +33,9 @@ async function getNowPlayingArtist(username: string, lastFMApiKey: string, shoul
 
             const lastFmRes = await getLastfmArtist(track.artist.mbid || searchRes.id, lastFMApiKey)
             if (lastFmRes === false) {
-                return { partial: true, ...searchRes }
+                return {partial: true, ...searchRes}
             }
-            return { ...lastFmRes.artist }
+            return {...lastFmRes.artist}
         }
     }
 }
@@ -73,7 +72,7 @@ export default declareCommand({
 
         if (otherUser) {
             const entry = await config.prisma.user.findFirst({
-                where: { id: otherUser.id }
+                where: {id: otherUser.id}
             });
             if (!entry?.musicUsername) {
                 await interaction.followUp({
@@ -86,7 +85,7 @@ export default declareCommand({
             useLastFM = !entry.musicUsesListenbrainz;
         } else {
             const entry = await config.prisma.user.findFirst({
-                where: { id: interaction.user.id }
+                where: {id: interaction.user.id}
             })
             user = interaction.options.getString("user");
             useLastFM = interaction.options.getBoolean("uselastfm");
@@ -122,7 +121,9 @@ export default declareCommand({
         } else {
             await interaction.followUp({
                 content: `${nowPlayingArtist.name} (${nowPlayingArtist.mbid})
-${nowPlayingArtist.tags.tag.map(t => t.name).join(", ")}`
+${nowPlayingArtist.tags.tag.map(t => t.name).join(", ")}
+
+${nowPlayingArtist.bio.summary}`
             })
         }
     },

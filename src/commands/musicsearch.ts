@@ -1,4 +1,4 @@
-import { createResizedEmoji, escapeMarkdown } from '../util.ts';
+import {createResizedEmoji, escapeMarkdown} from '../util.ts';
 import {
     ActionRowBuilder,
     ApplicationIntegrationType, AttachmentBuilder, ButtonBuilder, ButtonStyle,
@@ -7,9 +7,16 @@ import {
     SlashCommandBuilder,
     type MessageActionRowComponentBuilder
 } from "discord.js";
-import { deezerResponseShape, generateNowplayingImage, getSongOnPreferredProvider, itunesResponseShape, lobotomizedSongButton, musicCache } from "../music.ts";
-import { NO_EXTRA_CONFIG } from "../config.ts";
-import { declareCommand } from "../command.ts";
+import {
+    deezerResponseShape,
+    generateNowplayingImage,
+    getSongOnPreferredProvider,
+    itunesResponseShape,
+    lobotomizedSongButton,
+    musicCache
+} from "../music.ts";
+import {NO_EXTRA_CONFIG} from "../config.ts";
+import {declareCommand} from "../command.ts";
 
 export default declareCommand({
     async run(interaction: ChatInputCommandInteraction, config) {
@@ -37,7 +44,7 @@ export default declareCommand({
             }
 
             if (!link) {
-                const iTunesSearchParams = new URLSearchParams({ entity: "song", term: search });
+                const iTunesSearchParams = new URLSearchParams({entity: "song", term: search});
                 const iTunesJson = await (await fetch(`https://itunes.apple.com/search?${iTunesSearchParams.toString()}`)).json();
                 const iTunesInfo = itunesResponseShape.safeParse(iTunesJson).data?.results;
                 if (!iTunesInfo) {
