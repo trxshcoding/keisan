@@ -33,8 +33,9 @@ export async function loadCommands(
       const declared = undeclareCommand(mod.default);
       const packaged = tryPackageCommand(declared);
       all.push(packaged);
-    } catch (err) {
-      console.warn(`Could not instantiate command from ${file}:`, err);
+    } catch {
+      // do NOT print out `err` here, it fucking crashes node❓❓❓❓❓
+      console.warn(`Could not instantiate command from ${file}:`);
     }
   }
 

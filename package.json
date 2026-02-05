@@ -49,6 +49,7 @@
       "@napi-rs/canvas",
       "@prisma/client",
       "@prisma/engines",
+      "lefthook",
       "prisma",
       "sharp"
     ],
