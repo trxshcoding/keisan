@@ -35,7 +35,8 @@ export default declareCommand({
       content: `keisan - stats
 uptime: ${toHumanReadableTime(process.uptime())}
 memory: ${Math.floor(memoryUsage / 1024 / 1024)} mb
-node: \`${process.versions.node}\`, discord.js: \`${packageJson.dependencies["discord.js"].replace(/[^\d.]/g, "")}\``,
+node: \`${process.versions.node}\`, discord.js: \`${packageJson.dependencies["discord.js"].replace(/[^\d.]/g, "")}\`
+running on ${process.env.NODE_ENV === "production" ? "production" : "development"} mode`,
     });
   },
   dependsOn: NO_EXTRA_CONFIG,

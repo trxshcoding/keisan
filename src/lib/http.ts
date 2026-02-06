@@ -8,7 +8,7 @@ export const http = ofetch.create({
   timeout: 10_000,
   retry: 2,
   headers: {
-    "User-Agent": "amyjr-bot/1.0 (+https://codeberg.org/amyulated/amyjr)",
+    "User-Agent": "keisan/1.0 (+https://codeberg.org/amyulated/amyjr)",
   },
 });
 
