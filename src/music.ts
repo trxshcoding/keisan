@@ -518,6 +518,15 @@ export async function generateNowplayingImage(
   historyItem: HistoryItem,
   imageLink: string | undefined,
 ): Promise<Buffer<ArrayBufferLike>> {
+  const fontPath = fromPublic("fonts", "Nunito.ttf");
+  if (!GlobalFonts.has("Nunito")) {
+    GlobalFonts.registerFromPath(fontPath, "Nunito");
+  }
+  const jpFontPath = fromPublic("fonts", "ZenMaruGothic.ttf");
+  if (!GlobalFonts.has("ZenMaruGothic")) {
+    GlobalFonts.registerFromPath(jpFontPath, "ZenMaruGothic");
+  }
+
   const width = 1200,
     height = 480,
     padding = 60,
@@ -547,7 +556,7 @@ export async function generateNowplayingImage(
   const waveMultiplier = 0.75 + (clampedSaturation - minSaturation);
   drawBackground(ctx, width, height, colors, historyItem.songName, waveMultiplier);
 
-  const fontFamily = "sans-serif"
+  const fontFamily = "'Nunito', 'ZenMaruGothic', sans-serif"
   ctx.fillStyle = textColor;
 
   const image = imageBuffer ? await loadImage(imageBuffer) : coverArtPlaceholder;
