@@ -9,11 +9,18 @@ import {
   ButtonInteraction,
   MessageFlags,
 } from "discord.js";
+<<<<<<< HEAD
 import { z } from "zod";
 import type { Config } from "./config";
 import { calculateTextHeight, escapeMarkdown, numberFaggtory, wrapText } from "./util.ts";
 import { createCanvas, loadImage, type CanvasRenderingContext2D } from "@napi-rs/canvas";
 import { httpBuffer, httpJson } from "./lib/http.ts";
+=======
+import {z} from "zod";
+import type {Config} from "./config";
+import {calculateTextHeight, escapeMarkdown, numberFaggtory, wrapText} from "./util.ts";
+import {createCanvas, loadImage, type CanvasRenderingContext2D} from "canvas";
+>>>>>>> main
 import sharp from "sharp";
 
 export interface Song {
@@ -114,6 +121,7 @@ export const deezerResponseShape = z.object({
   ),
 });
 
+<<<<<<< HEAD
 export function songView(songlink: SongLink, preferredApi: Song, albumName?: string) {
   const components = [
     new ContainerBuilder().addSectionComponents(
@@ -128,6 +136,76 @@ ${albumName ? `from ${albumName}` : ""}`,
     ),
   ];
   const links = Object.keys(songlink.linksByPlatform);
+=======
+export const mBSearchResponseShape = z.object({
+    created: z.coerce.date(),
+    count: z.number(),
+    offset: z.number(),
+    artists: z.array(z.object({
+        id: z.string(),
+        type: z.string().optional(),
+        "type-id": z.string().optional(),
+        score: z.number().optional(),
+        name: z.string().optional()
+    }))
+})
+
+export const lFmArtistResponseShape = z.object({
+    artist: z.object({
+        name: z.string(),
+        mbid: z.string(),
+        url: z.string(),
+        image: z.array(z.object({"#text": z.string(), size: z.string()})),
+        streamable: z.string(),
+        ontour: z.string(),
+        stats: z.object({listeners: z.string(), playcount: z.string()}),
+        similar: z.object({
+            artist: z.array(
+                z.object({
+                    name: z.string(),
+                    url: z.string(),
+                    image: z.array(z.object({"#text": z.string(), size: z.string()}))
+                })
+            )
+        }),
+        tags: z.object({
+            tag: z.array(z.object({name: z.string(), url: z.string()}))
+        }),
+        bio: z.object({
+            links: z.object({
+                link: z.object({
+                    "#text": z.string(),
+                    rel: z.string(),
+                    href: z.string()
+                })
+            }),
+            published: z.string(),
+            summary: z.string(),
+            content: z.string()
+        })
+    })
+})
+
+
+export function songView(songlink: z.infer<typeof songLinkShape>, preferredApi: Song, albumName?: string) {
+    const components = [
+        new ContainerBuilder()
+            .addSectionComponents(
+                new SectionBuilder()
+                    .setThumbnailAccessory(
+                        new ThumbnailBuilder()
+                            .setURL(preferredApi.thumbnailUrl)
+                    )
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                            `# ${escapeMarkdown(preferredApi.artist)} - ${escapeMarkdown(preferredApi.title)}
+${albumName ? `from ${albumName}` : ""}`
+                        ),
+                    ),
+            )
+    ];
+    const links = Object.keys(songlink.linksByPlatform)
+>>>>>>> main
 
   const rows: ActionRowBuilder<ButtonBuilder>[] = [];
   let currentRow = new ActionRowBuilder<ButtonBuilder>();
@@ -226,6 +304,7 @@ export function kyzaify(input: string): string {
 const coverArtPlaceholder = await loadImage("https://keisan.fuckyou.amy.rip/placeholder.png");
 
 const minWaveOffset = 15;
+<<<<<<< HEAD
 function drawBackground(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -241,6 +320,22 @@ function drawBackground(
     offsetY: 0,
   };
   const waveOffsetScale = 75 * waveMultiplier;
+=======
+
+function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number, colors: {
+    left: string,
+    mid1: string,
+    mid2: string,
+    right: string
+}, trackName?: string, waveMultiplier: number = 1): CanvasRenderingContext2D {
+    const glowConfig = {
+        amount: 20,
+        color: 'rgba(0, 0, 0, 0.5)',
+        offsetX: 10,
+        offsetY: 0
+    };
+    const waveOffsetScale = 75 * waveMultiplier;
+>>>>>>> main
 
   const randomNumber = trackName ? numberFaggtory(trackName) : () => 0;
   const randomOffset = () => {
@@ -328,7 +423,51 @@ function drawBackground(
     ctx.shadowOffsetY = 0;
   });
 
+<<<<<<< HEAD
   return ctx;
+=======
+    waves.forEach(wave => {
+        ctx.beginPath();
+
+        ctx.moveTo(0, 0);
+
+        const topX = (w * wave.baseX) + wave.shiftTop;
+        const startX = topX;
+        const startY = 0;
+        const midX = (w * wave.baseX) + wave.shiftMid;
+        const midY = h * 0.5;
+        const endX = (w * wave.baseX) + wave.shiftBot;
+        const endY = h;
+
+        ctx.lineTo(topX, 0);
+        ctx.bezierCurveTo(
+            startX + wave.intensity, startY + (h * 0.2),
+            midX - wave.intensity, midY - (h * 0.2),
+            midX, midY
+        );
+        ctx.bezierCurveTo(
+            midX + wave.intensity, midY + (h * 0.2),
+            endX - wave.intensity, endY - (h * 0.2),
+            endX, endY
+        );
+        ctx.lineTo(0, h);
+        ctx.closePath();
+
+        ctx.shadowBlur = glowConfig.amount;
+        ctx.shadowColor = glowConfig.color;
+        ctx.shadowOffsetX = glowConfig.offsetX;
+        ctx.shadowOffsetY = glowConfig.offsetY;
+
+        ctx.fillStyle = wave.color;
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+    });
+
+    return ctx
+>>>>>>> main
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -337,6 +476,7 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
     ? {
         r: parseInt(result[1], 16),
         g: parseInt(result[2], 16),
+<<<<<<< HEAD
         b: parseInt(result[3], 16),
       }
     : { r: 0, g: 0, b: 0 };
@@ -348,6 +488,18 @@ function getSaturation(hex: string): number {
   const min = Math.min(r, g, b);
   if (max === 0) return 0;
   return (max - min) / max;
+=======
+        b: parseInt(result[3], 16)
+    } : {r: 0, g: 0, b: 0};
+}
+
+function getSaturation(hex: string): number {
+    const {r, g, b} = hexToRgb(hex);
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (max === 0) return 0;
+    return (max - min) / max;
+>>>>>>> main
 }
 
 function getLuminance(hex: string): number {
@@ -368,6 +520,7 @@ function interpolateColor(color1: string, color2: string, factor: number): strin
   return rgbToHex(r, g, b);
 }
 
+<<<<<<< HEAD
 function generateGradient({ base, primary }: { base: string; primary: string }) {
   return {
     left: base,
@@ -375,7 +528,17 @@ function generateGradient({ base, primary }: { base: string; primary: string }) 
     mid2: interpolateColor(base, primary, 0.66),
     right: primary,
   };
+=======
+function generateGradient({base, primary}: { base: string, primary: string }) {
+    return {
+        left: base,
+        mid1: interpolateColor(base, primary, 0.33),
+        mid2: interpolateColor(base, primary, 0.66),
+        right: primary
+    }
+>>>>>>> main
 }
+
 const baseColors = generateGradient({
   base: "#2B2B2B",
   primary: "#C46A9A",
@@ -476,8 +639,15 @@ export async function generateNowplayingImage(
 
   if (imageLink) {
     try {
+<<<<<<< HEAD
       imageBuffer = await httpBuffer(imageLink);
       const { primary, base } = await extractPalette(imageBuffer);
+=======
+        const {data, info} = await sharp(buffer)
+            .resize(32, 32, {fit: 'cover'})
+            .raw()
+            .toBuffer({resolveWithObject: true});
+>>>>>>> main
 
       colors = generateGradient({ base, primary });
       textColor = interpolateColor(primary, "#FFFFFF", 0.85);
@@ -528,6 +698,7 @@ export async function generateNowplayingImage(
     heightCursor += 35;
   }
 
+<<<<<<< HEAD
   ctx.fillStyle = colors.right;
   heightCursor -= 15;
   ctx.fillRect(textX, heightCursor, 100, 4);
@@ -555,4 +726,101 @@ export async function generateNowplayingImage(
   }
 
   return canvas.toBuffer("image/png");
+=======
+        return {primary, base};
+    } catch (e) {
+        return {primary: baseColors.right, base: baseColors.left};
+    }
+}
+
+export async function generateNowplayingImage(historyItem: HistoryItem, imageLink: string | undefined): Promise<Buffer<ArrayBufferLike>> {
+    const width = 1200, height = 480, padding = 60, imgSize = height - padding * 2;
+
+    let colors = {...baseColors};
+    let textColor = interpolateColor(colors.right, "#FFFFFF", 0.85);
+    let imageBuffer: Buffer | undefined;
+
+    if (imageLink) {
+        try {
+            const response = await fetch(imageLink);
+            const arrayBuffer = await response.arrayBuffer();
+            imageBuffer = Buffer.from(arrayBuffer);
+            const {primary, base} = await extractPalette(imageBuffer);
+
+            colors = generateGradient({base, primary});
+            textColor = interpolateColor(primary, "#FFFFFF", 0.85);
+        } catch {
+        }
+    }
+
+    const canvas = createCanvas(width, height)
+    const ctx = canvas.getContext('2d')
+
+    const minSaturation = 0.3, maxSaturation = 0.8; // dont change, needed to keep an equal range 0.75-1.25
+    const saturation = getSaturation(colors.right)
+    const clampedSaturation = Math.min(maxSaturation, Math.max(minSaturation, saturation))
+    const waveMultiplier = 0.75 + (clampedSaturation - minSaturation)
+
+    drawBackground(ctx, width, height, colors, historyItem.songName, waveMultiplier)
+
+    ctx.fillStyle = textColor
+
+    const image = imageBuffer ? await loadImage(imageBuffer) : coverArtPlaceholder
+    ctx.save()
+    ctx.beginPath()
+    const radius = 8
+    ctx.moveTo(padding + radius, padding)
+    ctx.arcTo(padding + imgSize, padding, padding + imgSize, padding + imgSize, radius)
+    ctx.arcTo(padding + imgSize, padding + imgSize, padding, padding + imgSize, radius)
+    ctx.arcTo(padding, padding + imgSize, padding, padding, radius)
+    ctx.arcTo(padding, padding, padding + imgSize, padding, radius)
+    ctx.closePath()
+    ctx.clip()
+    ctx.drawImage(image, padding, padding, imgSize, imgSize)
+    ctx.restore()
+
+    ctx.font = "bold 40px sans-serif";
+    const textMaxWidth = width - padding - imgSize - padding, textX = padding + imgSize + (padding / 2);
+    let heightCursor = padding + calculateTextHeight(historyItem.songName, ctx) + 10;
+    const songName = wrapText(historyItem.songName, textMaxWidth, ctx, 3);
+    for (const line of songName) {
+        ctx.fillText(line, textX, heightCursor);
+        heightCursor += 45;
+    }
+
+    ctx.font = "30px sans-serif";
+    const artist = wrapText("by " + historyItem.artistName, textMaxWidth, ctx, 2);
+    for (const line of artist) {
+        ctx.fillText(line, textX, heightCursor);
+        heightCursor += 35;
+    }
+
+    ctx.fillStyle = colors.right;
+    heightCursor -= 15;
+    ctx.fillRect(textX, heightCursor, 100, 4);
+
+    if (historyItem.albumName) {
+        const darkTextColor = interpolateColor(colors.left, "#000000", 0.85)
+        const albumTextColor = getLuminance(colors.right) > 0.65 ? darkTextColor : textColor;
+        ctx.fillStyle = albumTextColor;
+        ctx.font = "italic 24px sans-serif";
+        ctx.globalAlpha = 0.8;
+
+        const albumText = "from " + historyItem.albumName;
+        const albumWidth = ctx.measureText(albumText).width;
+        const albumX = width - padding - albumWidth;
+        const albumY = height - padding;
+
+        if (albumX > textX) {
+            ctx.fillText(albumText, albumX, albumY);
+        } else {
+            // If it's too long, left align it near the image bottom
+            const truncatedAlbum = wrapText(albumText, textMaxWidth - padding, ctx);
+            ctx.fillText(truncatedAlbum, textX, albumY);
+        }
+        ctx.globalAlpha = 1.0;
+    }
+
+    return canvas.toBuffer()
+>>>>>>> main
 }
