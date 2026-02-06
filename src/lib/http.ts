@@ -1,5 +1,6 @@
-import { ofetch } from "ofetch";
+import { ofetch, type FetchOptions } from "ofetch";
 
+type InitOptions = Exclude<FetchOptions, "responseType">;
 /**
  * Shared HTTP client.
  * Centralizes timeouts, retries and default headers for all outbound calls.
@@ -14,11 +15,11 @@ export const http = ofetch.create({
 
 export type HttpClient = typeof http;
 
-export const httpJson = async <T = any>(url: string, init?: any) =>
+export const httpJson = async <T = any>(url: string, init?: InitOptions) =>
   http<T>(url, { ...init, responseType: "json" } as any);
 
-export const httpBuffer = async (url: string, init?: any) =>
+export const httpBuffer = async (url: string, init?: InitOptions) =>
   Buffer.from(await http<ArrayBuffer>(url, { ...init, responseType: "arrayBuffer" } as any));
 
-export const httpText = async (url: string, init?: any) =>
+export const httpText = async (url: string, init?: InitOptions) =>
   http<string>(url, { ...init, responseType: "text" } as any);

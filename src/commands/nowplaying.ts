@@ -109,6 +109,7 @@ async function getMusicBrainzInfo(
   albumname: string;
   albumartlink: string;
 } | null> {
+  if (!release.id) return null;
   const albumname = release.title;
   const track =
     release.media
@@ -127,6 +128,16 @@ async function getMusicBrainzInfo(
     return { songname, albumname, albumartlink: response.url };
   } catch (error) {
     console.error("Failed to fetch cover art:", error);
+    return null;
+  }
+}
+
+async function fetchSongLink(link: string): Promise<SongLink | null> {
+  try {
+    const songlink = await httpJson<SongLink>(`https://api.song.link/v1-alpha.1/links?url=${link}`, { timeout: 30_000 });
+    return songlink;
+  } catch (error) {
+    console.error("Failed to fetch song.link:", error);
     return null;
   }
 }
@@ -185,23 +196,11 @@ export default declareCommand({
     }
 
     let { link, mbid } = nowPlaying;
-    let emoji: ApplicationEmoji | null = null;
     let highQualityCoverLink: string | undefined = undefined;
     let lowQualityCoverLink: string | undefined = undefined;
 
     if (nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "") === nowPlaying.songName)
       nowPlaying.albumName = "";
-
-    async function sendFallback(nowPlaying: HistoryItem) {
-      await interaction.followUp({
-        content: `### ${escapeMarkdown(nowPlaying.songName)} ${emoji ? String(emoji) : ""}
--# by ${escapeMarkdown(nowPlaying.artistName)}\
-${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
--# couldn't get more info about this song`,
-      });
-      if (emoji) await emoji.delete();
-      return;
-    }
 
     if (mbid) {
       const release = await mbApi.lookup("release", mbid, [
@@ -212,7 +211,7 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
         "release-groups",
       ]);
       const musicBrainzInfo = await getMusicBrainzInfo(release, nowPlaying.songName).catch(
-        () => {},
+        () => { },
       );
 
       if (musicBrainzInfo) {
@@ -279,6 +278,19 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
       }
     }
 
+    const nowPlayingContent = (np: HistoryItem, emoji: ApplicationEmoji | null) => {
+      return `### ${escapeMarkdown(np.songName)} ${emoji?.toString() || ""}
+-# by ${escapeMarkdown(np.artistName)}\
+${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
+    };
+    const loadingButton = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Secondary)
+        .setLabel("loading streaming links...")
+        .setCustomId("loading-placeholder")
+        .setDisabled(true),
+    )
+
     if (!link) {
       if (shouldImageGen) {
         const image = await generateNowplayingImage(
@@ -291,65 +303,108 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
         return;
       }
 
-      if (!emoji && (highQualityCoverLink || lowQualityCoverLink))
+      let emoji: ApplicationEmoji | null = null;
+      if (highQualityCoverLink || lowQualityCoverLink)
         emoji = await createResizedEmoji(interaction, highQualityCoverLink || lowQualityCoverLink!);
-      await sendFallback(nowPlaying);
+
+      await interaction.followUp({
+        content: `${nowPlayingContent(nowPlaying, emoji)}
+-# couldn't get more info about this song`,
+      });
+      if (emoji) await emoji.delete();
       return;
     }
 
-    const songlink = await httpJson<SongLink>(`https://api.song.link/v1-alpha.1/links?url=${link}`);
-    const preferredApi = getSongOnPreferredProvider(songlink, link!);
-    if (!preferredApi) {
-      if (!emoji && (highQualityCoverLink || lowQualityCoverLink))
-        emoji = await createResizedEmoji(interaction, highQualityCoverLink || lowQualityCoverLink!);
-      await sendFallback(nowPlaying);
-      return;
+    const coverLink = highQualityCoverLink || lowQualityCoverLink;
+    let emoji: ApplicationEmoji | null = null;
+    let initialContent;
+
+    if (shouldImageGen) {
+      const img = await generateNowplayingImage(nowPlaying, coverLink);
+      initialContent = {
+        files: [new AttachmentBuilder(img).setName("nowplaying.png")]
+      };
+    } else {
+      if (coverLink) {
+        emoji = await createResizedEmoji(interaction, coverLink);
+      }
+      initialContent = { content: nowPlayingContent(nowPlaying, emoji) };
     }
 
-    const cacheKey = songlink.pageUrl ?? link;
-    if (cacheKey) {
-      musicCache[cacheKey] ??= {
+    await interaction.followUp({
+      ...initialContent,
+      components: [loadingButton],
+    });
+    const sendSonglinkFallback = async () => shouldImageGen ?
+      await interaction.editReply({
+        ...initialContent,
+        content: `-# couldn't find streaming links`,
+        components: [],
+      }) : await interaction.editReply({
+        content: `${initialContent.content}
+-# couldn't find streaming links`,
+        components: [],
+      });
+
+    fetchSongLink(link).then(async (songlink) => {
+      if (!songlink || !songlink.pageUrl) {
+        await sendSonglinkFallback()
+        return;
+      }
+      const preferredApi = getSongOnPreferredProvider(songlink, link!);
+      if (!preferredApi) {
+        await sendSonglinkFallback()
+        return;
+      }
+
+      if (!highQualityCoverLink && !shouldImageGen) {
+        if (emoji) await emoji.delete()
+        emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
+      }
+
+      const finalNowPlaying = {
+        ...nowPlaying,
+        songName: preferredApi.title,
+        artistName: preferredApi.artist,
+      };
+      let finalContent
+      if (shouldImageGen) {
+        const img = await generateNowplayingImage(nowPlaying, preferredApi.thumbnailUrl);
+        finalContent = {
+          files: [new AttachmentBuilder(img).setName("nowplaying.png")]
+        };
+      } else {
+        if (!highQualityCoverLink) {
+          if (emoji) await emoji.delete()
+          emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
+        }
+        finalContent = { content: nowPlayingContent(finalNowPlaying, emoji) };
+      }
+
+      const finalComponents = [
+        new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+          new ButtonBuilder()
+            .setStyle(ButtonStyle.Secondary)
+            .setLabel("expand")
+            .setCustomId(songlink.pageUrl),
+        ),
+      ];
+
+      musicCache[songlink.pageUrl] = {
         preferredApi,
         songlink,
       };
-    }
-    nowPlaying.songName = preferredApi.title;
-    nowPlaying.artistName = preferredApi.artist;
 
-    const components = [
-      new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-        new ButtonBuilder()
-          .setStyle(ButtonStyle.Secondary)
-          .setLabel("expand")
-          .setCustomId(songlink.pageUrl ?? link!),
-      ),
-    ];
-
-    if (shouldImageGen) {
-      const image = await generateNowplayingImage(
-        nowPlaying,
-        preferredApi.thumbnailUrl || highQualityCoverLink || lowQualityCoverLink,
-      );
-      await interaction.followUp({
-        files: [new AttachmentBuilder(image).setName("nowplaying.png")],
-        components,
+      await interaction.editReply({
+        ...finalContent,
+        components: finalComponents,
       });
-      return;
-    }
-
-    if (!emoji && preferredApi.thumbnailUrl)
-      emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
-    else if (highQualityCoverLink || lowQualityCoverLink)
-      emoji = await createResizedEmoji(interaction, highQualityCoverLink || lowQualityCoverLink!);
-
-    await interaction.followUp({
-      content: `### ${escapeMarkdown(nowPlaying.songName)} ${emoji ? String(emoji) : ""}
--# by ${escapeMarkdown(nowPlaying.artistName)}\
-${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}`,
-      components,
+    }).catch(async (error) => {
+      console.error("Error in song.link fetch:", error);
+      await sendSonglinkFallback()
+    }).finally(async () => {
+      if (emoji) await emoji.delete();
     });
-    // we do not have infinite emoji slots
-    if (emoji) await emoji.delete();
   },
   button: lobotomizedSongButton,
   dependsOn: z.object({
