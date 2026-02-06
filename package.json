@@ -1,26 +1,37 @@
 {
   "type": "module",
   "scripts": {
+    "lint": "oxlint --type-aware src",
+    "lint:fix": "oxlint --type-aware --fix src",
+    "format": "oxfmt src",
     "start": "node --no-warnings=ExperimentalWarning --experimental-strip-types src/index.ts",
     "check": "tsc"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.808.0",
+    "@napi-rs/canvas": "^0.1.89",
     "@prisma/client": "^6.12.0",
     "@types/node": "^22.14.0",
     "@types/tmp": "^0.2.6",
     "acorn": "^8.14.1",
     "astring": "^1.9.0",
-    "canvas": "^3.1.0",
+    "consola": "^3.4.2",
+    "defu": "^6.1.4",
     "discord.js": "^14.19.3",
     "isomorphic-git": "^1.33.1",
     "linguist-js": "^2.9.2",
     "musicbrainz-api": "^0.25.1",
+    "ofetch": "^1.5.1",
+    "pathe": "^2.0.3",
     "sharp": "git+ssh://git@github.com/lovell/sharp.git",
     "tmp": "^0.2.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "lefthook": "^2.1.0",
+    "oxfmt": "^0.28.0",
+    "oxlint": "^1.43.0",
+    "oxlint-tsgolint": "^0.11.4",
     "prisma": "^6.12.0",
     "typescript": "^5.8.3"
   },
@@ -31,17 +42,17 @@
   },
   "pnpm": {
     "ignoredBuiltDependencies": [
-      "canvas"
+      "@napi-rs/canvas"
     ],
     "onlyBuiltDependencies": [
+      "@biomejs/biome",
+      "@napi-rs/canvas",
       "@prisma/client",
       "@prisma/engines",
-      "canvas",
+      "lefthook",
       "prisma",
       "sharp"
     ],
-    "patchedDependencies": {
-      "sharp@0.34.0-rc.0": "patches/sharp@0.34.0-rc.0.patch"
-    }
+    "patchedDependencies": {}
   }
 }

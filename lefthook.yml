@@ -1,0 +1,9 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      stage_fixed: true
+      run: pnpm lint
+    format:
+      stage_fixed: true
+      run: pnpm format
