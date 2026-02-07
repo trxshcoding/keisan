@@ -79,7 +79,7 @@ export default declareCommand({
     }
 
     let preferredApi, songlink;
-    songlink = await httpJson<SongLink>(`https://api.song.link/v1-alpha.1/links?url=${link}`);
+    songlink = await httpJson<SongLink>(`https://api.song.link/v1-alpha.1/links?url=${link}`, { timeout: 30_000 });
     preferredApi = getSongOnPreferredProvider(songlink, link)!;
 
     const cacheKey = songlink.pageUrl ?? link;
