@@ -357,11 +357,6 @@ ${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
         return;
       }
 
-      if (!highQualityCoverLink && !shouldImageGen) {
-        if (emoji) await emoji.delete()
-        emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
-      }
-
       const finalNowPlaying = {
         ...nowPlaying,
         songName: preferredApi.title,
