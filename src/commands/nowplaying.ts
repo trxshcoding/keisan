@@ -364,10 +364,13 @@ ${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
       };
       let finalContent
       if (shouldImageGen) {
-        const img = await generateNowplayingImage(nowPlaying, preferredApi.thumbnailUrl);
-        finalContent = {
-          files: [new AttachmentBuilder(img).setName("nowplaying.png")]
-        };
+        if (!highQualityCoverLink) {
+          const img = await generateNowplayingImage(nowPlaying, preferredApi.thumbnailUrl);
+          finalContent = {
+            files: [new AttachmentBuilder(img).setName("nowplaying.png")]
+          };
+        }
+        else finalContent = initialContent
       } else {
         if (!highQualityCoverLink) {
           if (emoji) await emoji.delete()
