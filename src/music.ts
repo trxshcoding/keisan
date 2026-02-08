@@ -12,9 +12,10 @@ import {
 import { z } from "zod";
 import type { Config } from "./config";
 import { calculateTextHeight, escapeMarkdown, numberFaggtory, wrapText } from "./util.ts";
-import { createCanvas, loadImage, type CanvasRenderingContext2D } from "@napi-rs/canvas";
+import { createCanvas, GlobalFonts, loadImage, type CanvasRenderingContext2D } from "@napi-rs/canvas";
 import { httpBuffer, httpJson } from "./lib/http.ts";
 import sharp from "sharp";
+import { fromPublic } from "./lib/paths.ts";
 
 export interface Song {
   title: string;
@@ -287,7 +288,7 @@ function drawBackground(
 ): CanvasRenderingContext2D {
   const glowConfig = {
     amount: 20,
-    color: "rgba(0, 0, 0, 0.5)",
+    color: "rgba(0, 0, 0, 0.7)",
     offsetX: 10,
     offsetY: 0,
   };
@@ -386,10 +387,10 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
     ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16),
-      }
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16),
+    }
     : { r: 0, g: 0, b: 0 };
 }
 
@@ -517,6 +518,15 @@ export async function generateNowplayingImage(
   historyItem: HistoryItem,
   imageLink: string | undefined,
 ): Promise<Buffer<ArrayBufferLike>> {
+  const fontPath = fromPublic("fonts", "Nunito.ttf");
+  if (!GlobalFonts.has("Nunito")) {
+    GlobalFonts.registerFromPath(fontPath, "Nunito");
+  }
+  const jpFontPath = fromPublic("fonts", "ZenMaruGothic.ttf");
+  if (!GlobalFonts.has("ZenMaruGothic")) {
+    GlobalFonts.registerFromPath(jpFontPath, "ZenMaruGothic");
+  }
+
   const width = 1200,
     height = 480,
     padding = 60,
@@ -533,7 +543,7 @@ export async function generateNowplayingImage(
 
       colors = generateGradient({ base, primary });
       textColor = interpolateColor(primary, "#FFFFFF", 0.85);
-    } catch {}
+    } catch { }
   }
 
   const canvas = createCanvas(width, height);
@@ -544,9 +554,9 @@ export async function generateNowplayingImage(
   const saturation = getSaturation(colors.right);
   const clampedSaturation = Math.min(maxSaturation, Math.max(minSaturation, saturation));
   const waveMultiplier = 0.75 + (clampedSaturation - minSaturation);
-
   drawBackground(ctx, width, height, colors, historyItem.songName, waveMultiplier);
 
+  const fontFamily = "'Nunito', 'ZenMaruGothic', sans-serif"
   ctx.fillStyle = textColor;
 
   const image = imageBuffer ? await loadImage(imageBuffer) : coverArtPlaceholder;
@@ -563,7 +573,7 @@ export async function generateNowplayingImage(
   ctx.drawImage(image, padding, padding, imgSize, imgSize);
   ctx.restore();
 
-  ctx.font = "bold 40px sans-serif";
+  ctx.font = `bold 40px ${fontFamily}`;
   const textMaxWidth = width - padding - imgSize - padding,
     textX = padding + imgSize + padding / 2;
   let heightCursor = padding + calculateTextHeight(historyItem.songName, ctx) + 10;
@@ -573,7 +583,7 @@ export async function generateNowplayingImage(
     heightCursor += 45;
   }
 
-  ctx.font = "30px sans-serif";
+  ctx.font = `30px ${fontFamily}`;
   const artist = wrapText("by " + historyItem.artistName, textMaxWidth, ctx, 2);
   for (const line of artist) {
     ctx.fillText(line, textX, heightCursor);
@@ -588,7 +598,7 @@ export async function generateNowplayingImage(
     const darkTextColor = interpolateColor(colors.left, "#000000", 0.85);
     const albumTextColor = getLuminance(colors.right) > 0.65 ? darkTextColor : textColor;
     ctx.fillStyle = albumTextColor;
-    ctx.font = "italic 24px sans-serif";
+    ctx.font = `italic 24px ${fontFamily}`;
     ctx.globalAlpha = 0.8;
 
     const albumText = "from " + historyItem.albumName;
