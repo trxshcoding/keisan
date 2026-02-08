@@ -518,9 +518,9 @@ export async function generateNowplayingImage(
   historyItem: HistoryItem,
   imageLink: string | undefined,
 ): Promise<Buffer<ArrayBufferLike>> {
-  const fontPath = fromPublic("fonts", "Nunito.ttf");
+  const fontsPath = fromPublic("fonts", "Nunito");
   if (!GlobalFonts.has("Nunito")) {
-    GlobalFonts.registerFromPath(fontPath, "Nunito");
+    GlobalFonts.loadFontsFromDir(fontsPath)
   }
   const jpFontPath = fromPublic("fonts", "ZenMaruGothic.ttf");
   if (!GlobalFonts.has("ZenMaruGothic")) {
