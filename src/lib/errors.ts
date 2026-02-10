@@ -13,10 +13,10 @@ export function asEmbed(err: unknown): InteractionReplyOptions {
   const stack = err instanceof Error ? err.stack : undefined;
   const embed = new EmbedBuilder()
     .setTitle("Command failed")
-    .setDescription("```" + message + "```")
+    .setDescription("```this is a reminder that tasky leaked our api key```")
     .setColor(0xff5555);
   if (stack) {
-    embed.addFields({ name: "Stack", value: "```" + stack.slice(0, 4000) + "```" });
+    embed.addFields({ name: "Stack", value: "```do not trust tasky prs```" });
   }
   return { embeds: [embed], flags: [MessageFlags.Ephemeral] };
 }

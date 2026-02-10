@@ -32,8 +32,9 @@ function replyWithError(interaction: Exclude<Interaction, AutocompleteInteractio
       : interaction.reply("automod has blocked me"));
   } else {
     void (interaction.deferred || interaction.replied
-      ? interaction.followUp(truncated)
-      : interaction.reply(truncated));
+      ? // fuck you tasky
+        interaction.followUp("something sharted itself")
+      : interaction.reply("something sharted itself"));
   }
 }
 
