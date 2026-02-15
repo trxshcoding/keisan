@@ -18,10 +18,13 @@ import { hash } from "crypto";
 import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
 import { declareCommand } from "../command.ts";
 import sharp from "sharp";
-import { httpBuffer } from "../lib/http.ts";
+import { http, httpBuffer, httpText } from "../lib/http.ts";
 import { fromPublic } from "../lib/paths.ts";
 
 const imagecache: Record<string, string> = {};
+const urlRegex = /https?:\/\/\S+/gi;
+const tenorRegex = /https?:\/\/tenor\.com\/view\/\S+/i;
+const cum = /<link\s+rel="image_src"\s+href="([^"]+)"/;
 
 export default declareCommand({
   targetType: ApplicationCommandType.Message,
@@ -30,15 +33,48 @@ export default declareCommand({
     .setType(ApplicationCommandType.Message),
   async run(interaction: ContextMenuCommandInteraction, target: Message): Promise<void> {
     let attachment = target.attachments.first();
-    if (!attachment) {
+    let attachmentUrl: string | undefined;
+
+    if (attachment) {
+      attachmentUrl = attachment.url;
+    } else {
+      const urls = target.content.match(urlRegex);
+      if (urls) {
+        for (const url of urls) {
+          try {
+            if (tenorRegex.test(url)) {
+              const text = await httpText(url);
+              console.log(text);
+              const match = text.match(cum);
+              if (match && match[1]) {
+                attachmentUrl = match[1];
+                break;
+              }
+            } else {
+              const res = await http.raw(url, { method: "HEAD" });
+              const contentType = res.headers.get("content-type");
+              if (contentType?.startsWith("image/")) {
+                attachmentUrl = url;
+                break;
+              }
+            }
+          } catch (e) {
+            console.error(`Failed to process URL ${url}:`, e);
+          }
+        }
+      }
+    }
+
+    if (!attachmentUrl) {
       await interaction.reply({
-        content: "no attachments found",
+        content: "no attachments or usable image links found",
         flags: [MessageFlags.Ephemeral],
       });
       return;
     }
-    const hashed = hash("md5", attachment.url);
-    imagecache[hashed] = attachment.url;
+
+    const hashed = hash("md5", attachmentUrl);
+    imagecache[hashed] = attachmentUrl;
     await interaction.showModal(
       new ContextyalBuilder(this.commandName)
         .setCustomId(hashed)
@@ -67,40 +103,58 @@ export default declareCommand({
     }
     const imageUrl = imagecache[interaction.customId.replaceAll("CC:caption|", "")];
     const avatarResponse = await httpBuffer(imageUrl!);
-    const image = await loadImage(await sharp(Buffer.from(avatarResponse)).png().toBuffer());
+    const imageBuffer = Buffer.from(avatarResponse);
+    const metadata = await sharp(imageBuffer, { animated: true }).metadata();
 
-    const width = image.width;
-    const height = Math.max(image.height * 1.2, image.width / 2);
-    const heightDiff = height - image.height;
+    const frameCount = metadata.pages ?? 1;
+    let meow = [];
+    const frames = Array.from({ length: frameCount }, (_, i) => sharp(imageBuffer, { page: i }));
 
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext("2d");
+    for (const frame of frames) {
+      const image = await loadImage(frame);
+      const width = image.width;
+      const height = Math.max(image.height * 1.2, image.width / 2);
+      const heightDiff = height - image.height;
 
-    ctx.fillStyle = "white";
-    ctx.fillRect(0, 0, width, height);
-    ctx.drawImage(image, 0, heightDiff);
+      const canvas = createCanvas(width, height);
+      const ctx = canvas.getContext("2d");
 
-    ctx.fillStyle = "black";
-    let fontSize = width / 6;
-    ctx.font = `${fontSize}px impact`;
-    ctx.textAlign = "center";
-    let metrics = ctx.measureText(memetext);
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(image, 0, heightDiff);
 
-    while (
-      (metrics.width > width * 0.8 || metrics.actualBoundingBoxAscent > height * 0.2) &&
-      fontSize > 1
-    ) {
-      fontSize--;
+      ctx.fillStyle = "black";
+      let fontSize = width / 6;
       ctx.font = `${fontSize}px impact`;
-      metrics = ctx.measureText(memetext);
+      ctx.textAlign = "center";
+      let metrics = ctx.measureText(memetext);
+
+      while (
+        (metrics.width > width * 0.8 || metrics.actualBoundingBoxAscent > height * 0.2) &&
+        fontSize > 1
+      ) {
+        fontSize--;
+        ctx.font = `${fontSize}px impact`;
+        metrics = ctx.measureText(memetext);
+      }
+
+      const yPos = heightDiff / 2 + metrics.actualBoundingBoxAscent / 2;
+      ctx.fillText(memetext, width / 2, yPos);
+
+      const buffer = canvas.toBuffer("image/png");
+      meow.push(buffer);
     }
 
-    const yPos = heightDiff / 2 + metrics.actualBoundingBoxAscent / 2;
-    ctx.fillText(memetext, width / 2, yPos);
+    const input = meow.length > 1 ? { join: { animated: true } } : undefined;
 
-    const buffer = canvas.toBuffer("image/png");
+    const source = meow.length > 1 ? meow : meow[0];
+
+    const buffer = await sharp(source, input)
+      .webp({ quality: 90, effort: 1, minSize: true, loop: 0 })
+      .toBuffer();
+
     await interaction.followUp({
-      files: [new AttachmentBuilder(buffer).setName("meme.png").setDescription(`some meme`)],
+      files: [new AttachmentBuilder(buffer).setName("meme.webp").setDescription(`some meme`)],
     });
   },
   dependsOn: NO_EXTRA_CONFIG,
