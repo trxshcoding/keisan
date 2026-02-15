@@ -12,7 +12,12 @@ import {
 import { z } from "zod";
 import type { Config } from "./config";
 import { calculateTextHeight, escapeMarkdown, numberFaggtory, wrapText } from "./util.ts";
-import { createCanvas, GlobalFonts, loadImage, type CanvasRenderingContext2D } from "@napi-rs/canvas";
+import {
+  createCanvas,
+  GlobalFonts,
+  loadImage,
+  type CanvasRenderingContext2D,
+} from "@napi-rs/canvas";
 import { httpBuffer, httpJson } from "./lib/http.ts";
 import sharp from "sharp";
 import { fromPublic } from "./lib/paths.ts";
@@ -275,7 +280,7 @@ export function kyzaify(input: string): string {
   return result;
 }
 
-const coverArtPlaceholder = await loadImage("https://keisan.fuckyou.amy.rip/placeholder.png");
+const coverArtPlaceholder = await loadImage("https://files.keisan.trashcod.ing/placeholder.png");
 
 const minWaveOffset = 15;
 function drawBackground(
@@ -387,10 +392,10 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
     ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16),
-    }
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
     : { r: 0, g: 0, b: 0 };
 }
 
@@ -520,7 +525,7 @@ export async function generateNowplayingImage(
 ): Promise<Buffer<ArrayBufferLike>> {
   const fontsPath = fromPublic("fonts", "Nunito");
   if (!GlobalFonts.has("Nunito")) {
-    GlobalFonts.loadFontsFromDir(fontsPath)
+    GlobalFonts.loadFontsFromDir(fontsPath);
   }
   const jpFontPath = fromPublic("fonts", "ZenMaruGothic.ttf");
   if (!GlobalFonts.has("ZenMaruGothic")) {
@@ -543,7 +548,7 @@ export async function generateNowplayingImage(
 
       colors = generateGradient({ base, primary });
       textColor = interpolateColor(primary, "#FFFFFF", 0.85);
-    } catch { }
+    } catch {}
   }
 
   const canvas = createCanvas(width, height);
@@ -556,7 +561,7 @@ export async function generateNowplayingImage(
   const waveMultiplier = 0.75 + (clampedSaturation - minSaturation);
   drawBackground(ctx, width, height, colors, historyItem.songName, waveMultiplier);
 
-  const fontFamily = "'Nunito', 'ZenMaruGothic', sans-serif"
+  const fontFamily = "'Nunito', 'ZenMaruGothic', sans-serif";
   ctx.fillStyle = textColor;
 
   const image = imageBuffer ? await loadImage(imageBuffer) : coverArtPlaceholder;

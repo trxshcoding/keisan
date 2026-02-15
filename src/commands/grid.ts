@@ -114,7 +114,7 @@ async function assembleLastFmGrid(
   const imagePromises = usefulinfo.map((info: { image: string }) =>
     loadImage(info.image).catch((e: unknown) => {
       console.error(`Failed to load image ${info.image}`, e);
-      return loadImage("https://keisan.fuckyou.amy.rip/placeholder.png");
+      return loadImage("https://files.keisan.trashcod.ing/placeholder.png");
     }),
   );
   const loadedImages = await Promise.all(imagePromises);
@@ -254,8 +254,10 @@ export default declareCommand({
       ],
       embeds: [
         new EmbedBuilder()
-          .setDescription(`${user}'s (${useLastFM ? "lastfm" : "listenbrainz"}) grid \
-over the past ${periodChoices.find((c) => c.value === period)!.name}`)
+          .setDescription(
+            `${user}'s (${useLastFM ? "lastfm" : "listenbrainz"}) grid \
+over the past ${periodChoices.find((c) => c.value === period)!.name}`,
+          )
           .setImage("attachment://hardcoremusiclistening.png")
           .setColor(0xff64c5)
           .setFooter({ text: `${playCount} scrobbles` }),

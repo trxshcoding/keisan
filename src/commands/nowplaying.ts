@@ -134,7 +134,10 @@ async function getMusicBrainzInfo(
 
 async function fetchSongLink(link: string): Promise<SongLink | null> {
   try {
-    const songlink = await httpJson<SongLink>(`https://api.song.link/v1-alpha.1/links?url=${link}`, { timeout: 30_000 });
+    const songlink = await httpJson<SongLink>(
+      `https://api.song.link/v1-alpha.1/links?url=${link}`,
+      { timeout: 30_000 },
+    );
     return songlink;
   } catch (error) {
     console.error("Failed to fetch song.link:", error);
@@ -211,7 +214,7 @@ export default declareCommand({
         "release-groups",
       ]);
       const musicBrainzInfo = await getMusicBrainzInfo(release, nowPlaying.songName).catch(
-        () => { },
+        () => {},
       );
 
       if (musicBrainzInfo) {
@@ -289,7 +292,7 @@ ${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
         .setLabel("loading streaming links...")
         .setCustomId("loading-placeholder")
         .setDisabled(true),
-    )
+    );
 
     if (!link) {
       if (shouldImageGen) {
@@ -322,7 +325,7 @@ ${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
     if (shouldImageGen) {
       const img = await generateNowplayingImage(nowPlaying, coverLink);
       initialContent = {
-        files: [new AttachmentBuilder(img).setName("nowplaying.png")]
+        files: [new AttachmentBuilder(img).setName("nowplaying.png")],
       };
     } else {
       if (coverLink) {
@@ -335,74 +338,78 @@ ${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
       ...initialContent,
       components: [loadingButton],
     });
-    const sendSonglinkFallback = async () => shouldImageGen ?
-      await interaction.editReply({
-        ...initialContent,
-        content: `-# couldn't find streaming links`,
-        components: [],
-      }) : await interaction.editReply({
-        content: `${initialContent.content}
+    const sendSonglinkFallback = async () =>
+      shouldImageGen
+        ? await interaction.editReply({
+            ...initialContent,
+            content: `-# couldn't find streaming links`,
+            components: [],
+          })
+        : await interaction.editReply({
+            content: `${initialContent.content}
 -# couldn't find streaming links`,
-        components: [],
-      });
+            components: [],
+          });
 
-    fetchSongLink(link).then(async (songlink) => {
-      if (!songlink || !songlink.pageUrl) {
-        await sendSonglinkFallback()
-        return;
-      }
-      const preferredApi = getSongOnPreferredProvider(songlink, link!);
-      if (!preferredApi) {
-        await sendSonglinkFallback()
-        return;
-      }
-
-      const finalNowPlaying = {
-        ...nowPlaying,
-        songName: preferredApi.title,
-        artistName: preferredApi.artist,
-      };
-      let finalContent
-      if (shouldImageGen) {
-        if (!highQualityCoverLink) {
-          const img = await generateNowplayingImage(nowPlaying, preferredApi.thumbnailUrl);
-          finalContent = {
-            files: [new AttachmentBuilder(img).setName("nowplaying.png")]
-          };
+    fetchSongLink(link)
+      .then(async (songlink) => {
+        if (!songlink || !songlink.pageUrl) {
+          await sendSonglinkFallback();
+          return;
         }
-        else finalContent = initialContent
-      } else {
-        if (!highQualityCoverLink) {
-          if (emoji) await emoji.delete()
-          emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
+        const preferredApi = getSongOnPreferredProvider(songlink, link!);
+        if (!preferredApi) {
+          await sendSonglinkFallback();
+          return;
         }
-        finalContent = { content: nowPlayingContent(finalNowPlaying, emoji) };
-      }
 
-      const finalComponents = [
-        new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-          new ButtonBuilder()
-            .setStyle(ButtonStyle.Secondary)
-            .setLabel("expand")
-            .setCustomId(songlink.pageUrl),
-        ),
-      ];
+        const finalNowPlaying = {
+          ...nowPlaying,
+          songName: preferredApi.title,
+          artistName: preferredApi.artist,
+        };
+        let finalContent;
+        if (shouldImageGen) {
+          if (!highQualityCoverLink) {
+            const img = await generateNowplayingImage(nowPlaying, preferredApi.thumbnailUrl);
+            finalContent = {
+              files: [new AttachmentBuilder(img).setName("nowplaying.png")],
+            };
+          } else finalContent = initialContent;
+        } else {
+          if (!highQualityCoverLink) {
+            if (emoji) await emoji.delete();
+            emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
+          }
+          finalContent = { content: nowPlayingContent(finalNowPlaying, emoji) };
+        }
 
-      musicCache[songlink.pageUrl] = {
-        preferredApi,
-        songlink,
-      };
+        const finalComponents = [
+          new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+            new ButtonBuilder()
+              .setStyle(ButtonStyle.Secondary)
+              .setLabel("expand")
+              .setCustomId(songlink.pageUrl),
+          ),
+        ];
 
-      await interaction.editReply({
-        ...finalContent,
-        components: finalComponents,
+        musicCache[songlink.pageUrl] = {
+          preferredApi,
+          songlink,
+        };
+
+        await interaction.editReply({
+          ...finalContent,
+          components: finalComponents,
+        });
+      })
+      .catch(async (error) => {
+        console.error("Error in song.link fetch:", error);
+        await sendSonglinkFallback();
+      })
+      .finally(async () => {
+        if (emoji) await emoji.delete();
       });
-    }).catch(async (error) => {
-      console.error("Error in song.link fetch:", error);
-      await sendSonglinkFallback()
-    }).finally(async () => {
-      if (emoji) await emoji.delete();
-    });
   },
   button: lobotomizedSongButton,
   dependsOn: z.object({
