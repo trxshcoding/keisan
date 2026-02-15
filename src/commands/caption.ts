@@ -44,7 +44,6 @@ export default declareCommand({
           try {
             if (tenorRegex.test(url)) {
               const text = await httpText(url);
-              console.log(text);
               const match = text.match(cum);
               if (match && match[1]) {
                 attachmentUrl = match[1];
