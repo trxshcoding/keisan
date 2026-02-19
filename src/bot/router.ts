@@ -20,7 +20,7 @@ import { respondWithDevError } from "../lib/errors.ts";
 
 function replyWithError(interaction: Exclude<Interaction, AutocompleteInteraction>, e: unknown) {
   const message = e instanceof Error ? e.message : String(e);
-  const truncated = message?.slice(0, 1800) || "unexpected error";
+  // const truncated = message?.slice(0, 1800) || "unexpected error";
 
   if (message.includes("Missing Permissions")) {
     void (interaction.deferred || interaction.replied

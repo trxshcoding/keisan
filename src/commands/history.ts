@@ -20,7 +20,7 @@ import {
   songView,
   type SongLink,
 } from "../music.ts";
-import { escapeMarkdown } from "../util.ts";
+import { escapeMarkdown } from "../utils/general.ts";
 import { httpJson } from "../lib/http.ts";
 
 type HistoryItem = {

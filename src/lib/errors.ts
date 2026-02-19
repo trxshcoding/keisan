@@ -9,7 +9,7 @@ import { consola } from "consola";
 const log = consola.withTag("errors");
 
 export function asEmbed(err: unknown): InteractionReplyOptions {
-  const message = err instanceof Error ? err.message : String(err);
+  // const message = err instanceof Error ? err.message : String(err);
   const stack = err instanceof Error ? err.stack : undefined;
   const embed = new EmbedBuilder()
     .setTitle("Command failed")

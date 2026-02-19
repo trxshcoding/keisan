@@ -17,10 +17,12 @@ import {
   TextDisplayBuilder,
   ThumbnailBuilder,
 } from "discord.js";
-import { chunkArray, createResizedEmoji, trimWhitespace } from "../util.ts";
+import { chunkArray, trimWhitespace } from "../utils/general.ts";
+import { createResizedEmoji } from "../utils/discord.ts";
 import { declareCommand } from "../command.ts";
 import { z } from "zod";
 import { httpJson } from "../lib/http.ts";
+import { getSharkeyEmojis } from "../utils/fedi.ts";
 
 const fediUserRegex = /@[^.@\s]+@(?:[^.@\s]+\.)+[^.@\s]+/;
 const emojiRatelimits = {
@@ -114,6 +116,16 @@ export default declareCommand({
             : [],
         )
         .concat(Object.entries(resp.reactionEmojis)) as [string, string][];
+      const localEmojis = Object.keys(resp.reactions).filter((name) => name.includes("@."));
+      if (localEmojis.length > 0) {
+        const instanceEmojis = await getSharkeyEmojis(config);
+        for (const rawName of localEmojis) {
+          const emojiName = rawName.match(/:(.+?)@\.:/)![1];
+          const emoji = instanceEmojis.find(({ name }) => emojiName === name);
+          if (emoji) emojiItems.push([emojiName + "@.", emoji.url]);
+        }
+      }
+
       const emojis = {} as Record<string, ApplicationEmoji>;
       const emojiBatches = chunkArray(emojiItems, emojiRatelimits.chunkSize);
       if (emojiBatches.length <= emojiRatelimits.chunks) {
@@ -142,9 +154,9 @@ export default declareCommand({
             .setThumbnailAccessory(new ThumbnailBuilder().setURL(resp.user.avatarUrl))
             .addTextDisplayComponents(
               /*
-                                if host is null, its the same host as the api
-                                why is it written like this? idfk
-                                */
+              if host is null, its the same host as the api
+              why is it written like this? idfk
+              */
               new TextDisplayBuilder().setContent(
                 `## ${(resp.user.name || resp.user.username).replace(/:([\w-]+):/g, (_, name) => {
                   if (!emojis[name]) return _;
@@ -158,10 +170,10 @@ export default declareCommand({
             .setStyle(ButtonStyle.Link)
             .setLabel("view post")
             /*
-                            im done with this garbage. `resp.uri` is NOT EVEN THERE when THE FUCKING instance IS THE SAME
-                            as the FUCKIOGN G WERDSKLP;GVFHEWRL'VGFHNCEW'RLFPVBHNGETFVBN
+            im done with this garbage. `resp.uri` is NOT EVEN THERE when THE FUCKING instance IS THE SAME
+            as the FUCKIOGN G WERDSKLP;GVFHEWRL'VGFHNCEW'RLFPVBHNGETFVBN
 
-                            */
+            */
             .setURL(!resp.uri ? new URL(`/notes/${fedistring}`, sharkeyBase).toString() : resp.uri),
         ),
       ];

@@ -11,7 +11,8 @@ import { declareCommand } from "../command.ts";
 import { NO_EXTRA_CONFIG } from "../config.ts";
 import { rm } from "fs/promises";
 import analyse from "linguist-js";
-import { bufferToEmoji, getGithubAvatar, getTop3Languages, imageBullshittery } from "../util.ts";
+import { bufferToEmoji } from "../utils/discord.ts";
+import { getGithubAvatar, getTop3Languages, imageBullshittery } from "../utils/coderepos.ts";
 
 export default declareCommand({
   async run(interaction, _config) {

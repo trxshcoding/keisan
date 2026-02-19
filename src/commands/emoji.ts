@@ -8,20 +8,8 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import { z } from "zod";
-import { httpJson } from "../lib/http.ts";
-import { URL } from "node:url";
-import { createResizedEmoji } from "../util.ts";
-
-async function getSharkeyEmojis(config: { sharkeyInstance: string }) {
-  const base = config.sharkeyInstance.startsWith("http")
-    ? config.sharkeyInstance
-    : `https://${config.sharkeyInstance}`;
-  const emojis = await httpJson<{ emojis: Array<{ name: string; url: string }> }>(
-    new URL("/api/emojis", base).toString(),
-  );
-  const typedEmojis: Array<{ name: string; url: string }> = emojis.emojis;
-  return typedEmojis;
-}
+import { createResizedEmoji } from "../utils/discord.ts";
+import { getSharkeyEmojis } from "../utils/fedi.ts";
 
 export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, config) {
@@ -62,7 +50,7 @@ export default declareCommand({
         await interaction.followUp("no pussy");
         return;
       }
-      await interaction.followUp(`${pussy}`);
+      await interaction.followUp(pussy.toString());
       await pussy.delete();
     }
   },
