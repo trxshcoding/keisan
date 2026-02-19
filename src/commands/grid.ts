@@ -13,7 +13,7 @@ import sharp from "sharp";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { z } from "zod";
 import type Stream from "stream";
-import { wrapText } from "../util.ts";
+import { wrapText } from "../utils/canvas.ts";
 import { http, httpJson, httpText } from "../lib/http.ts";
 
 async function urlToDataURI(url: string) {

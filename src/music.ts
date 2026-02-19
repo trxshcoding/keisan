@@ -11,7 +11,8 @@ import {
 } from "discord.js";
 import { z } from "zod";
 import type { Config } from "./config";
-import { calculateTextHeight, escapeMarkdown, numberFaggtory, wrapText } from "./util.ts";
+import { escapeMarkdown, numberFaggtory } from "./utils/general.ts";
+import { calculateTextHeight, wrapText } from "./utils/canvas.ts";
 import {
   createCanvas,
   GlobalFonts,
@@ -21,6 +22,12 @@ import {
 import { httpBuffer, httpJson } from "./lib/http.ts";
 import sharp from "sharp";
 import { fromPublic } from "./lib/paths.ts";
+import { MusicBrainzApi } from "musicbrainz-api";
+
+export const mbApi = new MusicBrainzApi({
+  appName: "YourAppName",
+  appVersion: "1.0.0",
+});
 
 export interface Song {
   title: string;

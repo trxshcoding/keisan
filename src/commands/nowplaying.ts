@@ -22,7 +22,9 @@ import {
   musicCache,
   type SongLink,
 } from "../music.ts";
-import { createResizedEmoji, escapeMarkdown, mbApi } from "../util.ts";
+import { createResizedEmoji } from "../utils/discord.ts";
+import { escapeMarkdown } from "../utils/general.ts";
+import { mbApi } from "../music.ts";
 import { declareCommand } from "../command.ts";
 import { z } from "zod";
 import { http, httpJson } from "../lib/http.ts";

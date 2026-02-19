@@ -11,7 +11,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import { ContextyalBuilder } from "../util.ts";
+import { ContextyalBuilder } from "../utils/discord.ts";
 import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 
 import { hash } from "crypto";

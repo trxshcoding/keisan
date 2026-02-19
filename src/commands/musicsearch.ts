@@ -1,4 +1,5 @@
-import { createResizedEmoji, escapeMarkdown } from "../util.ts";
+import { createResizedEmoji } from "../utils/discord.ts";
+import { escapeMarkdown } from "../utils/general.ts";
 import {
   ActionRowBuilder,
   ApplicationIntegrationType,
