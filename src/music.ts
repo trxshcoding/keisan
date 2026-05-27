@@ -41,6 +41,7 @@ export type HistoryItem = {
   songName: string;
   artistName: string;
   albumName?: string;
+  albumArt?: string;
   link?: string;
   mbid?: string;
 };

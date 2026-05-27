@@ -23,7 +23,7 @@ import {
   type SongLink,
 } from "../music.ts";
 import { createResizedEmoji } from "../utils/discord.ts";
-import { escapeMarkdown } from "../utils/general.ts";
+import { escapeMarkdown, tryCatch } from "../utils/general.ts";
 import { mbApi } from "../music.ts";
 import { declareCommand } from "../command.ts";
 import { z } from "zod";
@@ -73,16 +73,47 @@ async function getNowPlaying(
     }>(`https://api.listenbrainz.org/1/user/${username}/playing-now`);
     if (!res?.payload) return;
     else if (res.payload.count === 0) return false;
-    else {
-      const trackMetadata = res.payload.listens[0].track_metadata;
-      return {
-        songName: trackMetadata.track_name,
-        artistName: trackMetadata.artist_name,
-        albumName: trackMetadata.release_name,
-        link: trackMetadata.additional_info.origin_url,
-        mbid: trackMetadata.additional_info.release_mbid,
-      };
+
+    let {
+      track_name: songName,
+      artist_name: artistName,
+      release_name: albumName,
+      additional_info: additionalInfo,
+    } = res.payload.listens[0].track_metadata;
+    let albumArt: string | undefined = undefined;
+
+    if (additionalInfo.release_mbid) {
+      const [musicBrainzInfo] = await tryCatch(
+        mbApi
+          .lookup("release", additionalInfo.release_mbid, [
+            "recordings",
+            "artists",
+            "labels",
+            "url-rels",
+            "release-groups",
+          ])
+          .then((release) => getMusicBrainzInfo(release, songName)),
+      );
+
+      if (musicBrainzInfo) {
+        songName = musicBrainzInfo.songname;
+        if (
+          musicBrainzInfo.albumname &&
+          musicBrainzInfo.albumname.replace(/ - (?:Single|EP)$/, "") !== musicBrainzInfo.songname
+        )
+          albumName = musicBrainzInfo.albumname;
+        if (musicBrainzInfo.albumartlink) albumArt = musicBrainzInfo.albumartlink;
+      }
     }
+
+    return {
+      songName,
+      artistName,
+      albumName,
+      albumArt,
+      link: additionalInfo.origin_url,
+      mbid: additionalInfo.release_mbid,
+    };
   } else {
     const res = await httpJson<any>(
       `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${lastFMApiKey}&limit=1&format=json`,
@@ -93,11 +124,14 @@ async function getNowPlaying(
       const track = res.recenttracks.track[0];
       // yes its a string, horror
       if (track["@attr"]?.nowplaying !== "true") return false;
+
+      const coverArt = track.image?.at(-1)["#text"];
       return {
         songName: track.name,
         artistName: track.artist["#text"],
         albumName: track.album["#text"],
-        mbid: track.mbid,
+        albumArt:
+          coverArt && !coverArt.includes("2a96cbd8b46e442fc41c2b86b821562f") ? coverArt : undefined,
       };
     }
   }
@@ -200,35 +234,12 @@ export default declareCommand({
       return;
     }
 
-    let { link, mbid } = nowPlaying;
-    let highQualityCoverLink: string | undefined = undefined;
+    let { link, albumArt } = nowPlaying;
+    let highQualityCoverLink: string | undefined = albumArt || undefined;
     let lowQualityCoverLink: string | undefined = undefined;
 
     if (nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "") === nowPlaying.songName)
       nowPlaying.albumName = "";
-
-    if (mbid) {
-      const release = await mbApi.lookup("release", mbid, [
-        "recordings",
-        "artists",
-        "labels",
-        "url-rels",
-        "release-groups",
-      ]);
-      const musicBrainzInfo = await getMusicBrainzInfo(release, nowPlaying.songName).catch(
-        () => {},
-      );
-
-      if (musicBrainzInfo) {
-        nowPlaying.songName = musicBrainzInfo.songname;
-        if (
-          musicBrainzInfo.albumname &&
-          musicBrainzInfo.albumname.replace(/ - (?:Single|EP)$/, "") !== musicBrainzInfo.songname
-        )
-          nowPlaying.albumName = musicBrainzInfo.albumname;
-        if (musicBrainzInfo.albumartlink) highQualityCoverLink = musicBrainzInfo.albumartlink;
-      }
-    }
 
     if (!link) {
       const paramsObj = { q: `artist:"${nowPlaying.artistName}" track:"${nowPlaying.songName}"` };
