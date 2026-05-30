@@ -429,4 +429,5 @@ ${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
     lastFMApiKey: z.string(),
   }),
   slashCommand,
+  aliases: ["np", "nowplaying"],
 });

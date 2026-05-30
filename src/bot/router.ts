@@ -72,7 +72,10 @@ export function wireInteractions(
   const contextCommands = context.filter(isContextCommand);
 
   const slashLookup: CommandLookup<SlashCommand> = Object.fromEntries(
-    slashCommands.map((it) => [it.slashCommand.name, it]),
+    slashCommands.flatMap((it) => {
+      const names = [it.slashCommand.name, ...(it.aliases ?? [])];
+      return names.map((name) => [name, it]);
+    }),
   );
   const contextLookup: CommandLookup<ContextCmd> = Object.fromEntries(
     contextCommands.map((it) => [it.contextDefinition.name, it]),

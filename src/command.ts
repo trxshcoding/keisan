@@ -74,6 +74,7 @@ export type Command<ExtraConfig> = ICommand<ExtraConfig> & {
   button?: (interaction: ButtonInteraction, config: Config & ExtraConfig) => Promise<void>;
   modal?: (interaction: ModalSubmitInteraction, config: Config & ExtraConfig) => Promise<void>;
   slashCommand: SharedSlashCommand;
+  aliases?: string[];
 };
 
 export type AnyCommand<ExtraConfig> =
