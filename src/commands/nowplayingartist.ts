@@ -32,7 +32,9 @@ async function getNowPlayingArtist(
     }
     return { ...lastFmRes.artist };
   } else {
-    const res = await httpJson<any>(`https://api.listenbrainz.org/1/user/${username}/playing-now`);
+    const res = await httpJson<any>(
+      `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${lastFMApiKey}&limit=1&format=json`,
+    );
     if (!res?.recenttracks || !res.recenttracks?.track?.[0]) return;
     else {
       const track = res.recenttracks.track[0];
