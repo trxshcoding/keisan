@@ -1,4 +1,4 @@
-import type { Results } from "linguist-js/dist/types";
+import type { Results } from "linguist-js/dist/types.d.ts";
 import { createCanvas } from "@napi-rs/canvas";
 import { httpBuffer, httpJson } from "../lib/http.ts";
 

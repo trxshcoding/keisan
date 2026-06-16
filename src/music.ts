@@ -10,7 +10,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import { z } from "zod";
-import type { Config } from "./config";
+import type { Config } from "./config.ts";
 import { escapeMarkdown, numberFaggtory } from "./utils/general.ts";
 import { calculateTextHeight, wrapText } from "./utils/canvas.ts";
 import {
