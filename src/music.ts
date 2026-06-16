@@ -8,9 +8,11 @@ import {
   ButtonStyle,
   ButtonInteraction,
   MessageFlags,
+  type ChatInputCommandInteraction,
 } from "discord.js";
 import { z } from "zod";
 import type { Config } from "./config";
+import { PrismaClient } from "./generated/prisma/index.js";
 import { escapeMarkdown, numberFaggtory } from "./utils/general.ts";
 import { calculateTextHeight, wrapText } from "./utils/canvas.ts";
 import {
@@ -223,6 +225,113 @@ export const musicCache: Record<
     songlink: SongLink;
   }
 > = {};
+
+export type MusicUser = {
+  username: string;
+  useLastFM: boolean;
+};
+
+export async function resolveMusicUser(
+  interaction: ChatInputCommandInteraction,
+  prisma: PrismaClient,
+): Promise<MusicUser | null> {
+  const otherUser = interaction.options.getUser("discord_user");
+
+  if (otherUser) {
+    const entry = await prisma.user.findFirst({
+      where: { id: otherUser.id },
+    });
+    if (!entry?.musicUsername) {
+      throw new Error(`${otherUser.username} doesn't have a music account saved`);
+    }
+    return {
+      username: entry.musicUsername,
+      useLastFM: !entry.musicUsesListenbrainz,
+    };
+  }
+
+  const entry = await prisma.user.findFirst({
+    where: { id: interaction.user.id },
+  });
+  const user = interaction.options.getString("user");
+  const useLastFM = interaction.options.getBoolean("uselastfm");
+
+  if (entry?.musicUsername) {
+    return {
+      username: user ?? entry.musicUsername,
+      useLastFM: useLastFM ?? !entry.musicUsesListenbrainz,
+    };
+  }
+
+  if (user === null || useLastFM === null) {
+    throw new Error(
+      "you don't have a music account saved. use the `/config nowplaying` command to save them, or specify them as arguments to only use once",
+    );
+  }
+
+  return { username: user, useLastFM };
+}
+
+export type MusicSearchResult = {
+  link: string;
+  albumName: string;
+  artworkUrl?: string;
+  artworkIsLowQuality: boolean;
+};
+
+export async function searchMusicPlatforms(
+  title: string,
+  artist?: string,
+): Promise<MusicSearchResult | null> {
+  const deezerParams = artist
+    ? {
+        q: `artist:"${artist}" track:"${title}"`,
+      }
+    : {
+        q: title,
+      };
+  const deezerInfo = deezerResponseShape.safeParse(
+    await httpJson(`https://api.deezer.com/search?${new URLSearchParams(deezerParams).toString()}`),
+  ).data?.data;
+
+  if (Array.isArray(deezerInfo) && deezerInfo[0]) {
+    const track =
+      deezerInfo.find((res) => res.title === title) ||
+      deezerInfo.find((res) => res.title.toLowerCase() === title.toLowerCase()) ||
+      deezerInfo[0];
+
+    const cleanedAlbum = track.album.title.replace(/ - (?:Single|EP)$/, "");
+    return {
+      link: track.link,
+      albumName: cleanedAlbum !== title ? cleanedAlbum : "",
+      artworkUrl: track.album.cover_big,
+      artworkIsLowQuality: false,
+    };
+  }
+
+  const iTunesInfo = itunesResponseShape.safeParse(
+    await httpJson(
+      `https://itunes.apple.com/search?${new URLSearchParams({ entity: "song", term: `${artist || ""} ${title}`.trim() }).toString()}`,
+    ),
+  ).data?.results;
+
+  if (Array.isArray(iTunesInfo) && iTunesInfo[0]) {
+    const track =
+      iTunesInfo.find((res) => res.trackName === title) ||
+      iTunesInfo.find((res) => res.trackName.toLowerCase() === title.toLowerCase()) ||
+      iTunesInfo[0];
+
+    const cleanedAlbum = track.collectionName.replace(/ - (?:Single|EP)$/, "");
+    return {
+      link: track.trackViewUrl,
+      albumName: cleanedAlbum !== title ? cleanedAlbum : "",
+      artworkUrl: track.artworkUrl100,
+      artworkIsLowQuality: true,
+    };
+  }
+
+  return null;
+}
 
 export async function lobotomizedSongButton(
   interaction: ButtonInteraction,

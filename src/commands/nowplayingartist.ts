@@ -6,7 +6,7 @@ import {
   MessageFlags,
   SlashCommandBuilder,
 } from "discord.js";
-import { lFmArtistResponseShape, mBSearchResponseShape } from "../music.ts";
+import { lFmArtistResponseShape, mBSearchResponseShape, resolveMusicUser } from "../music.ts";
 import { z } from "zod";
 import { httpJson } from "../lib/http.ts";
 
@@ -74,46 +74,21 @@ async function getLastfmArtist(artistMbid: string, lastfmKey: string) {
 export default declareCommand({
   run: async function (interaction: ChatInputCommandInteraction, config) {
     await interaction.deferReply();
-    const otherUser = interaction.options.getUser("discord_user");
-    let user: string | null;
-    let useLastFM: boolean | null;
 
-    if (otherUser) {
-      const entry = await config.prisma.user.findFirst({
-        where: { id: otherUser.id },
-      });
-      if (!entry?.musicUsername) {
-        await interaction.followUp({
-          content: `${otherUser.username} doesn't have a music account saved`,
+    const musicUser = await resolveMusicUser(interaction, config.prisma).catch(
+      (e: Error) =>
+        void interaction.followUp({
+          content: e.message,
           flags: [MessageFlags.Ephemeral],
-        });
-        return;
-      }
-      user = entry.musicUsername;
-      useLastFM = !entry.musicUsesListenbrainz;
-    } else {
-      const entry = await config.prisma.user.findFirst({
-        where: { id: interaction.user.id },
-      });
-      user = interaction.options.getString("user");
-      useLastFM = interaction.options.getBoolean("uselastfm");
+        }),
+    );
+    if (!musicUser) return;
 
-      if (entry?.musicUsername) {
-        user ??= entry.musicUsername;
-        useLastFM ??= !entry.musicUsesListenbrainz;
-      }
-    }
-
-    if (user === null || useLastFM === null) {
-      await interaction.followUp({
-        content:
-          "you don't have a music account saved. use the `/config nowplaying` command to save them, or specify them as arguments to only use once",
-        flags: [MessageFlags.Ephemeral],
-      });
-      return;
-    }
-
-    const nowPlayingArtist = await getNowPlayingArtist(user, config.lastFMApiKey, useLastFM);
+    const nowPlayingArtist = await getNowPlayingArtist(
+      musicUser.username,
+      config.lastFMApiKey,
+      musicUser.useLastFM,
+    );
 
     if (!nowPlayingArtist) {
       await interaction.followUp({

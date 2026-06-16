@@ -15,10 +15,11 @@ import {
 import { z } from "zod";
 import {
   getSongOnPreferredProvider,
-  itunesResponseShape,
   musicCache,
   songView,
   type SongLink,
+  resolveMusicUser,
+  searchMusicPlatforms,
 } from "../music.ts";
 import { escapeMarkdown } from "../utils/general.ts";
 import { httpJson } from "../lib/http.ts";
@@ -102,46 +103,21 @@ const historyCache = {
 export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, config) {
     await interaction.deferReply();
-    const otherUser = interaction.options.getUser("discord_user");
-    let user: string | null;
-    let useLastFM: boolean | null;
 
-    if (otherUser) {
-      const entry = await config.prisma.user.findFirst({
-        where: { id: otherUser.id },
-      });
-      if (!entry?.musicUsername) {
-        await interaction.followUp({
-          content: `${otherUser.username} doesn't have a music account saved`,
+    const musicUser = await resolveMusicUser(interaction, config.prisma).catch(
+      (e: Error) =>
+        void interaction.followUp({
+          content: e.message,
           flags: [MessageFlags.Ephemeral],
-        });
-        return;
-      }
-      user = entry.musicUsername;
-      useLastFM = !entry.musicUsesListenbrainz;
-    } else {
-      const entry = await config.prisma.user.findFirst({
-        where: { id: interaction.user.id },
-      });
-      user = interaction.options.getString("user");
-      useLastFM = interaction.options.getBoolean("uselastfm");
+        }),
+    );
+    if (!musicUser) return;
 
-      if (entry?.musicUsername) {
-        user ??= entry.musicUsername;
-        useLastFM ??= !entry.musicUsesListenbrainz;
-      }
-    }
+    const history = await getHistory(
+      musicUser.username,
+      musicUser.useLastFM ? config.lastFMApiKey : undefined,
+    );
 
-    if (user === null || useLastFM === null) {
-      await interaction.followUp({
-        content:
-          "you don't have a music account saved. use the `/config nowplaying` command to save them, or specify them as arguments to only use once",
-        flags: [MessageFlags.Ephemeral],
-      });
-      return;
-    }
-
-    const history = await getHistory(user, useLastFM ? config.lastFMApiKey : undefined);
     if (!history || history.length === 0) {
       await interaction.followUp({
         content: "that user hasn't listened to anything lately",
@@ -149,10 +125,10 @@ export default declareCommand({
       });
       return;
     }
-    historyCache[useLastFM ? "lastfm" : "listenbrainz"][user] = history;
+    historyCache[musicUser.useLastFM ? "lastfm" : "listenbrainz"][musicUser.username] = history;
 
     await interaction.followUp({
-      components: [songEmbed(history, 0, user, useLastFM)],
+      components: [songEmbed(history, 0, musicUser.username, musicUser.useLastFM)],
       flags: [MessageFlags.IsComponentsV2],
     });
   },
@@ -189,22 +165,12 @@ export default declareCommand({
         });
         const item = history[pos];
         let link = history[pos].link;
-        if (!link && platform === "lastfm") {
-          const paramsObj = { entity: "song", term: `${item.artistName} ${item.songName}` };
-          const searchParams = new URLSearchParams(paramsObj);
-          const iTunesInfo = itunesResponseShape.safeParse(
-            await httpJson(`https://itunes.apple.com/search?${searchParams.toString()}`),
-          ).data?.results;
 
-          if (Array.isArray(iTunesInfo) && iTunesInfo[0]) {
-            const track =
-              iTunesInfo.find((res) => res.trackName === item.songName) ||
-              iTunesInfo.find(
-                (res) => res.trackName.toLowerCase() === item.songName.toLowerCase(),
-              ) ||
-              iTunesInfo[0];
-            link = track.trackViewUrl;
-            item.albumName ??= track.collectionName;
+        if (!link && platform === "lastfm") {
+          const searchResult = await searchMusicPlatforms(item.songName, item.artistName);
+          if (searchResult) {
+            link = searchResult.link;
+            item.albumName ??= searchResult.albumName;
           }
         }
         if (!link) {
