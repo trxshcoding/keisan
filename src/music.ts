@@ -254,22 +254,23 @@ export async function resolveMusicUser(
     where: { id: interaction.user.id },
   });
   const user = interaction.options.getString("user");
-  const useLastFM = interaction.options.getBoolean("uselastfm");
+  const useLastFMOption = interaction.options.getString("uselastfm");
 
   if (entry?.musicUsername) {
     return {
       username: user ?? entry.musicUsername,
-      useLastFM: useLastFM ?? !entry.musicUsesListenbrainz,
+      useLastFM:
+        useLastFMOption !== null ? useLastFMOption === "lastfm" : !entry.musicUsesListenbrainz,
     };
   }
 
-  if (user === null || useLastFM === null) {
+  if (user === null || useLastFMOption === null) {
     throw new Error(
       "you don't have a music account saved. use the `/config nowplaying` command to save them, or specify them as arguments to only use once",
     );
   }
 
-  return { username: user, useLastFM };
+  return { username: user, useLastFM: useLastFMOption === "lastfm" };
 }
 
 export type MusicSearchResult = {

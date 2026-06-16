@@ -42,10 +42,14 @@ const slashCommand = new SlashCommandBuilder()
   .addStringOption((option) => {
     return option.setName("user").setDescription("username").setRequired(false);
   })
-  .addBooleanOption((option) => {
+  .addStringOption((option) => {
     return option
-      .setName("uselastfm")
-      .setDescription("use last.fm or listenbrainz")
+      .setName("platform")
+      .setDescription("scrobble platform")
+      .addChoices(
+        { name: "Last.fm", value: "lastfm" },
+        { name: "ListenBrainz", value: "listenbrainz" },
+      )
       .setRequired(false);
   })
   .addUserOption((option) => {
