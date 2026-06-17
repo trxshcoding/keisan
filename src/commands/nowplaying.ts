@@ -4,23 +4,23 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ChatInputCommandInteraction,
-  MessageFlags,
   InteractionContextType,
   type MessageActionRowComponentBuilder,
   SlashCommandBuilder,
   type ApplicationEmoji,
   AttachmentBuilder,
+  MessageFlags,
 } from "discord.js";
 
 import {
   generateNowplayingImage,
   getSongOnPreferredProvider,
   type HistoryItem,
-  itunesResponseShape,
-  deezerResponseShape,
   lobotomizedSongButton,
   musicCache,
   type SongLink,
+  resolveMusicUser,
+  searchMusicPlatforms,
 } from "../music.ts";
 import { createResizedEmoji } from "../utils/discord.ts";
 import { escapeMarkdown, tryCatch } from "../utils/general.ts";
@@ -42,10 +42,14 @@ const slashCommand = new SlashCommandBuilder()
   .addStringOption((option) => {
     return option.setName("user").setDescription("username").setRequired(false);
   })
-  .addBooleanOption((option) => {
+  .addStringOption((option) => {
     return option
-      .setName("uselastfm")
-      .setDescription("use last.fm or listenbrainz")
+      .setName("platform")
+      .setDescription("scrobble platform")
+      .addChoices(
+        { name: "Last.fm", value: "lastfm" },
+        { name: "ListenBrainz", value: "listenbrainz" },
+      )
       .setRequired(false);
   })
   .addUserOption((option) => {
@@ -185,52 +189,26 @@ export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, config): Promise<void> {
     await interaction.deferReply();
     const shouldImageGen = interaction.options.getBoolean("imagegen") ?? false;
-    const otherUser = interaction.options.getUser("discord_user");
-    let user: string | null;
-    let useLastFM: boolean | null;
 
-    if (otherUser) {
-      const entry = await config.prisma.user.findFirst({
-        where: { id: otherUser.id },
-      });
-      if (!entry?.musicUsername) {
-        await interaction.followUp({
-          content: `${otherUser.username} doesn't have a music account saved`,
+    const musicUser = await resolveMusicUser(interaction, config.prisma).catch(
+      (e: Error) =>
+        void interaction.followUp({
+          content: e.message,
           flags: [MessageFlags.Ephemeral],
-        });
-        return;
-      }
-      user = entry.musicUsername;
-      useLastFM = !entry.musicUsesListenbrainz;
-    } else {
-      const entry = await config.prisma.user.findFirst({
-        where: { id: interaction.user.id },
-      });
-      user = interaction.options.getString("user");
-      useLastFM = interaction.options.getBoolean("uselastfm");
+        }),
+    );
+    if (!musicUser) return;
 
-      if (entry?.musicUsername) {
-        user ??= entry.musicUsername;
-        useLastFM ??= !entry.musicUsesListenbrainz;
-      }
-    }
-
-    if (user === null || useLastFM === null) {
-      await interaction.followUp({
-        content:
-          "you don't have a music account saved. use the `/config nowplaying` command to save them, or specify them as arguments to only use once",
-        flags: [MessageFlags.Ephemeral],
-      });
-      return;
-    }
-
-    const nowPlaying = await getNowPlaying(user, useLastFM ? config.lastFMApiKey : undefined);
+    const nowPlaying = await getNowPlaying(
+      musicUser.username,
+      musicUser.useLastFM ? config.lastFMApiKey : undefined,
+    );
 
     if (typeof nowPlaying === "undefined") {
       await interaction.followUp("unexpected error; please try again shortly");
       return;
     } else if (!nowPlaying) {
-      await interaction.followUp(user + " isn't listening to music");
+      await interaction.followUp(musicUser.username + " isn't listening to music");
       return;
     }
 
@@ -242,54 +220,14 @@ export default declareCommand({
       nowPlaying.albumName = "";
 
     if (!link) {
-      const paramsObj = { q: `artist:"${nowPlaying.artistName}" track:"${nowPlaying.songName}"` };
-      const searchParams = new URLSearchParams(paramsObj);
-      const deezerInfo = deezerResponseShape.safeParse(
-        await httpJson(`https://api.deezer.com/search?${searchParams.toString()}`),
-      ).data?.data;
-
-      if (Array.isArray(deezerInfo) && deezerInfo[0]) {
-        const track =
-          deezerInfo.find((res) => res.title === nowPlaying.songName) ||
-          deezerInfo.find((res) => res.title.toLowerCase() === nowPlaying.songName.toLowerCase()) ||
-          deezerInfo[0];
-
-        link = track.link;
-        if (
-          !nowPlaying.albumName &&
-          track.album.title &&
-          track.album.title.replace(/ - (?:Single|EP)$/, "") !== track.title
-        )
-          nowPlaying.albumName = track.album.title;
-        if (!highQualityCoverLink && track.album.cover_big)
-          highQualityCoverLink = track.album.cover_big;
-      }
-
-      if (!link) {
-        const paramsObj = {
-          entity: "song",
-          term: `${nowPlaying.artistName} ${nowPlaying.songName}`,
-        };
-        const searchParams = new URLSearchParams(paramsObj);
-        const iTunesInfo = itunesResponseShape.safeParse(
-          await httpJson(`https://itunes.apple.com/search?${searchParams.toString()}`),
-        ).data?.results;
-
-        if (Array.isArray(iTunesInfo) && iTunesInfo[0]) {
-          const track =
-            iTunesInfo.find((res) => res.trackName === nowPlaying.songName) ||
-            iTunesInfo.find(
-              (res) => res.trackName.toLowerCase() === nowPlaying.songName.toLowerCase(),
-            ) ||
-            iTunesInfo[0];
-
-          link = track.trackViewUrl;
-          if (
-            !nowPlaying.albumName &&
-            track.collectionName?.replace(/ - (?:Single|EP)$/, "") !== track.trackName
-          )
-            nowPlaying.albumName = track.collectionName;
-          if (track.artworkUrl100) lowQualityCoverLink = track.artworkUrl100;
+      const searchResult = await searchMusicPlatforms(nowPlaying.songName, nowPlaying.artistName);
+      if (searchResult) {
+        link = searchResult.link;
+        if (!nowPlaying.albumName && searchResult.albumName)
+          nowPlaying.albumName = searchResult.albumName;
+        if (searchResult.artworkUrl) {
+          if (searchResult.artworkIsLowQuality) lowQualityCoverLink = searchResult.artworkUrl;
+          else highQualityCoverLink = searchResult.artworkUrl;
         }
       }
     }
@@ -370,7 +308,7 @@ ${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
           await sendSonglinkFallback();
           return;
         }
-        const preferredApi = getSongOnPreferredProvider(songlink, link!);
+        const preferredApi = getSongOnPreferredProvider(songlink, link);
         if (!preferredApi) {
           await sendSonglinkFallback();
           return;

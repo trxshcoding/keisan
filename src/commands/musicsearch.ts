@@ -12,13 +12,12 @@ import {
   type MessageActionRowComponentBuilder,
 } from "discord.js";
 import {
-  deezerResponseShape,
   generateNowplayingImage,
   getSongOnPreferredProvider,
-  itunesResponseShape,
   lobotomizedSongButton,
   musicCache,
   type SongLink,
+  searchMusicPlatforms,
 } from "../music.ts";
 import { NO_EXTRA_CONFIG } from "../config.ts";
 import { declareCommand } from "../command.ts";
@@ -35,48 +34,16 @@ export default declareCommand({
     if (search.match(/^https?:\/\//)) {
       link = search;
     } else {
-      const deezerInfo = deezerResponseShape.safeParse(
-        await httpJson(`https://api.deezer.com/search/track?q=${encodeURIComponent(search)}`),
-      ).data?.data;
-
-      if (Array.isArray(deezerInfo) && deezerInfo[0]) {
-        const track =
-          deezerInfo.find((res) => res.title === search) ||
-          deezerInfo.find((res) => res.title.toLowerCase() === search.toLowerCase()) ||
-          deezerInfo[0];
-
-        link = track.link;
-        albumName =
-          track.album.title.replace(/ - (?:Single|EP)$/, "") === track.album.title
-            ? ""
-            : track.album.title.replace(/ - (?:Single|EP)$/, "");
+      const searchResult = await searchMusicPlatforms(search);
+      if (searchResult) {
+        link = searchResult.link;
+        albumName = searchResult.albumName;
       }
+    }
 
-      if (!link) {
-        const iTunesSearchParams = new URLSearchParams({ entity: "song", term: search });
-        const iTunesJson = await httpJson(
-          `https://itunes.apple.com/search?${iTunesSearchParams.toString()}`,
-        );
-        const iTunesInfo = itunesResponseShape.safeParse(iTunesJson).data?.results;
-        if (!iTunesInfo) {
-          await interaction.followUp("couldn't find that");
-          return;
-        }
-
-        const track =
-          iTunesInfo.find((res) => res.trackName === search) ||
-          iTunesInfo.find((res) => res.trackName.toLowerCase() === search.toLowerCase()) ||
-          iTunesInfo[0];
-        if (!track) {
-          await interaction.followUp("couldn't find that");
-          return;
-        }
-        link = track.trackViewUrl;
-        albumName =
-          track.collectionName.replace(/ - (?:Single|EP)$/, "") === track.trackName
-            ? ""
-            : track.collectionName.replace(/ - (?:Single|EP)$/, "");
-      }
+    if (!link) {
+      await interaction.followUp("couldn't find that");
+      return;
     }
 
     let preferredApi, songlink;
