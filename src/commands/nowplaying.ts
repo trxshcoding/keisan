@@ -21,6 +21,7 @@ import {
   type SongLink,
   resolveMusicUser,
   searchMusicPlatforms,
+  injectSonglinkEntries,
 } from "../music.ts";
 import { createResizedEmoji } from "../utils/discord.ts";
 import { escapeMarkdown, tryCatch } from "../utils/general.ts";
@@ -129,14 +130,36 @@ async function getNowPlaying(
       // yes its a string, horror
       if (track["@attr"]?.nowplaying !== "true") return false;
 
-      const coverArt = track.image?.at(-1)["#text"];
-      return {
+      let coverArt = track.image?.at(-1)["#text"];
+      if (coverArt && coverArt.includes("2a96cbd8b46e442fc41c2b86b821562f")) coverArt = undefined;
+
+      const [content, coverArtRes] = await Promise.all([
+        (await fetch(track.url)).text(),
+        coverArt ? fetch(coverArt, { method: "HEAD" }) : Promise.resolve({ ok: false } as const),
+      ]);
+      const youtubeMatch = content.match(
+        /play-this-track-playlink--youtube(?:.{0,500})href="(.+?)"/s,
+      );
+      const spotifyMatch = content.match(
+        /play-this-track-playlink--spotify(?:.{0,500})href="(.+?)"/s,
+      );
+
+      const historyItem: HistoryItem = {
         songName: track.name,
         artistName: track.artist["#text"],
         albumName: track.album["#text"],
-        albumArt:
-          coverArt && !coverArt.includes("2a96cbd8b46e442fc41c2b86b821562f") ? coverArt : undefined,
+        albumArt: coverArt && coverArtRes.ok ? coverArt : undefined,
+        extraLinks: [],
       };
+      if (spotifyMatch?.[1]) historyItem.link = spotifyMatch[1];
+      if (youtubeMatch?.[1])
+        historyItem.extraLinks!.push({
+          name: "YouTube",
+          url: youtubeMatch[1],
+          uniqueId: `YOUTUBE_SONG::${youtubeMatch[1].slice(-11)}`,
+        });
+
+      return historyItem;
     }
   }
 }
@@ -308,6 +331,7 @@ ${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
           await sendSonglinkFallback();
           return;
         }
+        injectSonglinkEntries(songlink, nowPlaying.extraLinks);
         const preferredApi = getSongOnPreferredProvider(songlink, link);
         if (!preferredApi) {
           await sendSonglinkFallback();

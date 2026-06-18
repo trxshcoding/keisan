@@ -45,6 +45,7 @@ export type HistoryItem = {
   albumName?: string;
   albumArt?: string;
   link?: string;
+  extraLinks?: { name: string; url: string; uniqueId: string }[];
   mbid?: string;
 };
 
@@ -81,12 +82,11 @@ export function getSongOnPreferredProvider(json: unknown, _link: string): Song |
   }
   const song = maybesong.data;
   for (const platform of preferredProviders) {
-    if (!song.linksByPlatform[platform]) {
-      console.log(`couldnt find song on ${platform}`);
-      continue;
-    }
+    if (!song.linksByPlatform[platform]) continue;
+
     const entityId = song.linksByPlatform[platform].entityUniqueId;
     const songInfo = song.entitiesByUniqueId[entityId];
+    if (!songInfo) continue;
 
     return {
       title: songInfo.title,
@@ -97,6 +97,17 @@ export function getSongOnPreferredProvider(json: unknown, _link: string): Song |
     };
   }
   return null;
+}
+
+export function injectSonglinkEntries(songlink: SongLink, extraLinks: HistoryItem["extraLinks"]) {
+  if (!extraLinks) return;
+  for (const res of extraLinks) {
+    if (songlink.linksByPlatform[res.name.toLowerCase()]) continue;
+    songlink.linksByPlatform[res.name.toLowerCase()] = {
+      url: res.url,
+      entityUniqueId: res.uniqueId,
+    };
+  }
 }
 
 export const itunesResponseShape = z.object({
