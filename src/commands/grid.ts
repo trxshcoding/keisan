@@ -15,6 +15,7 @@ import { z } from "zod";
 import type Stream from "stream";
 import { wrapText } from "../utils/canvas.ts";
 import { http, httpJson, httpText } from "../lib/http.ts";
+import { resolveMusicUser } from "../music.ts";
 
 async function urlToDataURI(url: string) {
   const response = await http.raw(url, { responseType: "arrayBuffer" });
@@ -154,44 +155,17 @@ async function assembleLastFmGrid(
 export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, config) {
     await interaction.deferReply();
-    const otherUser = interaction.options.getUser("discord_user");
-    let user: string | null;
-    let useLastFM: boolean | null;
 
-    if (otherUser) {
-      const entry = await config.prisma.user.findFirst({
-        where: { id: otherUser.id },
-      });
-      if (!entry?.musicUsername) {
-        await interaction.followUp({
-          content: `${otherUser.username} doesn't have a music account saved`,
+    const musicUser = await resolveMusicUser(interaction, config.prisma).catch(
+      (e: Error) =>
+        void interaction.followUp({
+          content: e.message,
           flags: [MessageFlags.Ephemeral],
-        });
-        return;
-      }
-      user = entry.musicUsername;
-      useLastFM = !entry.musicUsesListenbrainz;
-    } else {
-      const entry = await config.prisma.user.findFirst({
-        where: { id: interaction.user.id },
-      });
-      user = interaction.options.getString("user");
-      useLastFM = interaction.options.getBoolean("uselastfm");
+        }),
+    );
+    if (!musicUser) return;
 
-      if (entry?.musicUsername) {
-        user ??= entry.musicUsername;
-        useLastFM ??= !entry.musicUsesListenbrainz;
-      }
-    }
-
-    if (user === null || useLastFM === null) {
-      await interaction.followUp({
-        content:
-          "you don't have a music account saved. use the `/config nowplaying` command to save them, or specify them as arguments to only use once",
-        flags: [MessageFlags.Ephemeral],
-      });
-      return;
-    }
+    const { username: user, useLastFM } = musicUser;
 
     const GRID_SIZE = 3,
       DEFAULT_PERIOD = "week";
@@ -281,10 +255,14 @@ over the past ${periodChoices.find((c) => c.value === period)!.name}`,
     .addStringOption((option) => {
       return option.setName("user").setDescription("username").setRequired(false);
     })
-    .addBooleanOption((option) => {
+    .addStringOption((option) => {
       return option
-        .setName("uselastfm")
-        .setDescription("use last.fm or listenbrainz")
+        .setName("platform")
+        .setDescription("scrobble platform")
+        .addChoices(
+          { name: "Last.fm", value: "lastfm" },
+          { name: "ListenBrainz", value: "listenbrainz" },
+        )
         .setRequired(false);
     })
     .addUserOption((option) => {
