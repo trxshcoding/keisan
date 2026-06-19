@@ -18,7 +18,7 @@ import { http, httpJson, httpText } from "../lib/http.ts";
 import { resolveMusicUser } from "../music.ts";
 
 async function urlToDataURI(url: string) {
-  const response = await http.raw(url, { responseType: "arrayBuffer" });
+  const response = await http.native(url);
   const contentType = response.headers.get("content-type") ?? "application/octet-stream";
   const buffer = Buffer.from(await response.arrayBuffer());
   return `data:${contentType};base64,${buffer.toString("base64")}`;
