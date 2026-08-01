@@ -265,7 +265,7 @@ export async function resolveMusicUser(
     where: { id: interaction.user.id },
   });
   const user = interaction.options.getString("user");
-  const useLastFMOption = interaction.options.getString("uselastfm");
+  const useLastFMOption = interaction.options.getString("platform");
 
   if (entry?.musicUsername) {
     return {
