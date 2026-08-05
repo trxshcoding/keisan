@@ -38,6 +38,7 @@ const configT = z.object({
       historyAmount: z.coerce.number().default(3),
     }),
   }),
+  disabledCommands: z.array(z.string()).default([]),
 });
 type RawConfig = z.infer<typeof configT>;
 export type Config = RawConfig & { prisma: PrismaClient };

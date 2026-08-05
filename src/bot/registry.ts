@@ -10,6 +10,7 @@ import {
   type PackagedCommand,
 } from "../command.ts";
 import { fromRoot } from "../lib/paths.ts";
+import { config } from "../config.ts";
 
 export type CommandBundle = {
   all: PackagedCommand<AnyCommand<unknown>, unknown>[];
@@ -24,7 +25,9 @@ export async function loadCommands(
   commandPath = join(fromRoot("src"), "commands"),
 ): Promise<CommandBundle> {
   const all: PackagedCommand<AnyCommand<unknown>, unknown>[] = [];
-  const files = fs.readdirSync(commandPath).filter((f) => f.endsWith(".ts"));
+  const files = fs
+    .readdirSync(commandPath)
+    .filter((f) => f.endsWith(".ts") && !config.disabledCommands.includes(f));
 
   for (const file of files) {
     const full = join(commandPath, file);
