@@ -68,23 +68,68 @@ const slashCommand = new SlashCommandBuilder()
   ]);
 import type { IRelease } from "musicbrainz-api";
 
+type Status = "OK" | "NOTLISTENING" | "USERNOTFOUND" | "UNKNOWNERROR";
+
+async function getNowPlayingLastFM(
+  username: string,
+  token: string,
+): Promise<{ status: Status; data?: any }> {
+  let response: any;
+  try {
+    response = await httpJson(
+      `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${token}&limit=1&format=json`,
+    );
+  } catch (error: any) {
+    if (error.response && error.response.status === 404) {
+      return { status: "USERNOTFOUND" };
+    } else {
+      return { status: "UNKNOWNERROR" };
+    }
+  }
+  const balls = response?.recenttracks?.track[0];
+  if (balls.track["@attr"]?.nowplaying === "true") {
+    return { status: "OK", data: response.payload };
+  } else {
+    return { status: "NOTLISTENING" };
+  }
+}
+
+async function getNowPlayingListenbrainz(
+  username: string,
+): Promise<{ status: Status; data?: any }> {
+  let response: any;
+  try {
+    response = await httpJson(`https://api.listenbrainz.org/1/user/${username}/playing-now`);
+  } catch (error: any) {
+    if (error.response && error.response.status === 404) {
+      return { status: "USERNOTFOUND" };
+    } else {
+      return { status: "UNKNOWNERROR" };
+    }
+  }
+  if (response && response.payload && response.payload.count !== 0) {
+    return { status: "OK", data: response.payload };
+  } else {
+    return { status: "NOTLISTENING" };
+  }
+}
+
 async function getNowPlaying(
   username: string,
   lastFMApiKey?: string,
-): Promise<HistoryItem | false | undefined> {
+): Promise<{ status: "ok"; item: HistoryItem } | { status: "error"; err: Status }> {
   if (!lastFMApiKey) {
-    const res = await httpJson<{
-      payload?: { count: number; listens: Array<{ track_metadata: any }> };
-    }>(`https://api.listenbrainz.org/1/user/${username}/playing-now`);
-    if (!res?.payload) return;
-    else if (res.payload.count === 0) return false;
+    const res = await getNowPlayingListenbrainz(username);
+    if (!res.data) {
+      return { status: "error", err: res.status };
+    }
 
     let {
       track_name: songName,
       artist_name: artistName,
       release_name: albumName,
       additional_info: additionalInfo,
-    } = res.payload.listens[0].track_metadata;
+    } = res.data.payload.listens[0].track_metadata;
     let albumArt: string | undefined = undefined;
 
     if (additionalInfo.release_mbid) {
@@ -112,23 +157,23 @@ async function getNowPlaying(
     }
 
     return {
-      songName,
-      artistName,
-      albumName,
-      albumArt,
-      link: additionalInfo.origin_url,
-      mbid: additionalInfo.release_mbid,
+      status: "ok",
+      item: {
+        songName,
+        artistName,
+        albumName,
+        albumArt,
+        link: additionalInfo.origin_url,
+        mbid: additionalInfo.release_mbid,
+      },
     };
   } else {
-    const res = await httpJson<any>(
-      `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${lastFMApiKey}&limit=1&format=json`,
-    );
-    if (!res?.recenttracks) return;
-    else if (!res.recenttracks?.track?.[0]) return false;
-    else {
-      const track = res.recenttracks.track[0];
+    const res = await getNowPlayingLastFM(username, lastFMApiKey);
+    if (!res.data) {
+      return { status: "error", err: res.status };
+    } else {
+      const track = res.data.recenttracks.track[0];
       // yes its a string, horror
-      if (track["@attr"]?.nowplaying !== "true") return false;
 
       let coverArt = track.image?.at(-1)["#text"];
       if (coverArt && coverArt.includes("2a96cbd8b46e442fc41c2b86b821562f")) coverArt = undefined;
@@ -159,7 +204,10 @@ async function getNowPlaying(
           uniqueId: `YOUTUBE_SONG::${youtubeMatch[1].slice(-11)}`,
         });
 
-      return historyItem;
+      return {
+        status: "ok",
+        item: historyItem,
+      };
     }
   }
 }
@@ -222,19 +270,27 @@ export default declareCommand({
     );
     if (!musicUser) return;
 
-    const nowPlaying = await getNowPlaying(
+    const nowPlayingRes = await getNowPlaying(
       musicUser.username,
       musicUser.useLastFM ? config.lastFMApiKey : undefined,
     );
 
-    if (typeof nowPlaying === "undefined") {
-      await interaction.followUp("unexpected error; please try again shortly");
-      return;
-    } else if (!nowPlaying) {
-      await interaction.followUp(musicUser.username + " isn't listening to music");
-      return;
+    if (nowPlayingRes.status === "error") {
+      switch (nowPlayingRes.err) {
+        case "NOTLISTENING":
+          await interaction.followUp(`${musicUser.username} is not listening to music`);
+          return;
+        case "UNKNOWNERROR":
+          await interaction.followUp("unexpected error; please try again shortly");
+          return;
+        case "USERNOTFOUND":
+          await interaction.followUp(`user ${musicUser.username} not found`);
+          return;
+        default:
+          return;
+      }
     }
-
+    const nowPlaying = nowPlayingRes.item;
     let { link, albumArt } = nowPlaying;
     let highQualityCoverLink: string | undefined = albumArt || undefined;
     let lowQualityCoverLink: string | undefined = undefined;

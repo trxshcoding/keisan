@@ -13,7 +13,7 @@ import {
 import { z } from "zod";
 import { PrismaClient } from "./generated/prisma/index.js";
 import type { Config } from "./config.ts";
-import { escapeMarkdown, numberFaggtory } from "./utils/general.ts";
+import { escapeMarkdown, numberFaggtory, tryCatch } from "./utils/general.ts";
 import { calculateTextHeight, wrapText } from "./utils/canvas.ts";
 import {
   createCanvas,
