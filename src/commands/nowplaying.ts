@@ -87,8 +87,8 @@ async function getNowPlayingLastFM(
     }
   }
   const balls = response?.recenttracks?.track[0];
-  if (balls.track["@attr"]?.nowplaying === "true") {
-    return { status: "OK", data: response.payload };
+  if (balls["@attr"]?.nowplaying === "true") {
+    return { status: "OK", data: response };
   } else {
     return { status: "NOTLISTENING" };
   }
@@ -123,13 +123,12 @@ async function getNowPlaying(
     if (!res.data) {
       return { status: "error", err: res.status };
     }
-
     let {
       track_name: songName,
       artist_name: artistName,
       release_name: albumName,
       additional_info: additionalInfo,
-    } = res.data.payload.listens[0].track_metadata;
+    } = res.data.listens[0].track_metadata;
     let albumArt: string | undefined = undefined;
 
     if (additionalInfo.release_mbid) {
