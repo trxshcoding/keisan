@@ -71,6 +71,8 @@ export function numberFaggtory(str: string) {
   return xoshiro128ss(seeds[0], seeds[1], seeds[2], seeds[3]);
 }
 
+export const clamp = (min: number, n: number, max: number) => Math.max(min, Math.min(max, n));
+
 type Result<T, E = Error> = [T, null] | [null, E];
 export async function tryCatch<T, E = Error>(promise: Promise<T>): Promise<Result<T, E>> {
   try {
