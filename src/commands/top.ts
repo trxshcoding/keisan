@@ -10,10 +10,10 @@ import {
   SlashCommandBuilder,
   TextDisplayBuilder,
 } from "discord.js";
-import { NO_EXTRA_CONFIG, type Config } from "../config.ts";
 import { resolveMusicUser } from "../music.ts";
 import { httpJson } from "../lib/http.ts";
 import { clamp } from "../utils/general.ts";
+import { z } from "zod";
 
 type Status = "OK" | "USERNOTFOUND" | "UNKNOWNERROR";
 
@@ -31,8 +31,27 @@ async function getTopMusicListenbrainz(username: string): Promise<{ status: Stat
   return { status: "OK", data: response.payload.recordings };
 }
 
+async function getTopMusicLastFm(
+  username: string,
+  token: string,
+): Promise<{ status: Status; data?: any }> {
+  let response: any;
+  try {
+    response = await httpJson(
+      `https://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${username}&api_key=${token}&format=json `,
+    );
+  } catch (error: any) {
+    if (error.response && error.response.status === 404) {
+      return { status: "USERNOTFOUND" };
+    } else {
+      return { status: "UNKNOWNERROR" };
+    }
+  }
+  return { status: "OK", data: response.toptracks.track };
+}
+
 export default declareCommand({
-  async run(interaction: ChatInputCommandInteraction, config: Config) {
+  async run(interaction: ChatInputCommandInteraction, config) {
     await interaction.deferReply();
     const amount = await interaction.options.getInteger("amount");
     const musicUser = await resolveMusicUser(interaction, config.prisma).catch(
@@ -45,23 +64,50 @@ export default declareCommand({
     if (!musicUser) return;
 
     if (musicUser.useLastFM) {
-      interaction.followUp(
-        "https://tenor.com/view/last-fm-spotify-wrapped-music-dog-rejection-weirded-out-gif-2852139180125226669",
-      );
+      const topMusicList = await getTopMusicLastFm(musicUser.username, config.lastFMApiKey);
+      const components = [
+        new ContainerBuilder()
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `${musicUser.username} (${musicUser.useLastFM ? "lastFM" : "listenbrainz"}) top songs`,
+            ),
+          )
+          .addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
+          )
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              (topMusicList.data as Array<any>)
+                .toSpliced(clamp(0, amount ?? 3, 20))
+                .map((a) => {
+                  return `${a.artist.name} - ${a.name} (${a.playcount} times listened)`;
+                })
+                .join("\n"),
+            ),
+          ),
+      ];
+      await interaction.followUp({
+        components,
+        flags: [MessageFlags.IsComponentsV2],
+      });
       return;
     }
 
-    const balls = await getTopMusicListenbrainz(musicUser.username);
+    const topMusicList = await getTopMusicListenbrainz(musicUser.username);
 
     const components = [
       new ContainerBuilder()
-        .addTextDisplayComponents(new TextDisplayBuilder().setContent("lets go gambling"))
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `${musicUser.username} (${musicUser.useLastFM ? "lastFM" : "listenbrainz"}) top songs`,
+          ),
+        )
         .addSeparatorComponents(
           new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
         )
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
-            (balls.data as Array<any>)
+            (topMusicList.data as Array<any>)
               .toSpliced(clamp(0, amount ?? 3, 20))
               .map((a) => {
                 return `${a.artist_name} - ${a.track_name} (${a.listen_count} times listened)`;
@@ -75,7 +121,9 @@ export default declareCommand({
       flags: [MessageFlags.IsComponentsV2],
     });
   },
-  dependsOn: NO_EXTRA_CONFIG,
+  dependsOn: z.object({
+    lastFMApiKey: z.string(),
+  }),
   slashCommand: new SlashCommandBuilder()
     .setName("top")
     .setDescription("get top music")
