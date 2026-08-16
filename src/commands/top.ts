@@ -8,6 +8,7 @@ import {
   SeparatorBuilder,
   SeparatorSpacingSize,
   SlashCommandBuilder,
+  SlashCommandSubcommandBuilder,
   TextDisplayBuilder,
 } from "discord.js";
 import { resolveMusicUser } from "../music.ts";
@@ -30,6 +31,8 @@ interface TopMusicAlbum {
   artistName: string;
   playCount: number;
 }
+
+const topMusicTypes = ["track", "artist", "album"] as const;
 
 const topMusicListenbrainz = {
   getTracks: async (
@@ -117,7 +120,6 @@ const topMusicLastFM = {
     const response = await httpJson(
       `https://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${username}&api_key=${token}&format=json`,
     ).catch((error) => {
-      console.log(error);
       if (error.response && error.response.status === 404) {
         return { iserror: true, status: "USERNOTFOUND" satisfies FailureStatus };
       } else {
@@ -184,11 +186,56 @@ const topMusicLastFM = {
   },
 };
 
+const slashCommand = new SlashCommandBuilder()
+  .setName("top")
+  .setDescription("get top music")
+  .setIntegrationTypes([ApplicationIntegrationType.UserInstall])
+  .setContexts([
+    InteractionContextType.BotDM,
+    InteractionContextType.Guild,
+    InteractionContextType.PrivateChannel,
+  ]);
+for (const type of topMusicTypes) {
+  slashCommand.addSubcommand(
+    new SlashCommandSubcommandBuilder()
+      .setName(type + "s")
+      .setDescription(`get top ${type}s for a user`)
+      .addIntegerOption((option) => {
+        return option
+          .setName("amount")
+          .setDescription("number of items returned")
+          .setRequired(false);
+      })
+      .addStringOption((option) => {
+        return option.setName("user").setDescription("username").setRequired(false);
+      })
+      .addStringOption((option) => {
+        return option
+          .setName("platform")
+          .setDescription("scrobble platform")
+          .addChoices(
+            { name: "Last.fm", value: "lastfm" },
+            { name: "ListenBrainz", value: "listenbrainz" },
+          )
+          .setRequired(false);
+      })
+      .addUserOption((option) => {
+        return option
+          .setName("discord_user")
+          .setDescription(
+            "a user with their music account saved by the bot. has priority over other options",
+          )
+          .setRequired(false);
+      }),
+  );
+}
+
 export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, config) {
     await interaction.deferReply();
-    const amount = interaction.options.getInteger("amount");
-    const type = (interaction.options.getString("type") ?? "track") as "track" | "album" | "artist";
+    const rawAmount = interaction.options.getInteger("amount");
+    const amount = clamp(0, rawAmount ?? 3, 20);
+    const type = interaction.options.getSubcommand(true) as (typeof topMusicTypes)[number];
     const musicUser = await resolveMusicUser(interaction, config.prisma).catch(
       (e: Error) =>
         void interaction.followUp({
@@ -212,7 +259,7 @@ export default declareCommand({
             return;
           case "OK": {
             list = res.data
-              .toSpliced(clamp(0, amount ?? 3, 20))
+              .toSpliced(amount)
               .map((a) => {
                 return `${a.artistName} - **${a.name}** (${a.playCount} plays)`;
               })
@@ -233,7 +280,7 @@ export default declareCommand({
             return;
           case "OK": {
             list = res.data
-              .toSpliced(clamp(0, amount ?? 3, 20))
+              .toSpliced(amount)
               .map((a) => {
                 return `${a.artistName} (${a.playCount} plays)`;
               })
@@ -254,7 +301,7 @@ export default declareCommand({
             return;
           case "OK": {
             list = res.data
-              .toSpliced(clamp(0, amount ?? 3, 20))
+              .toSpliced(amount)
               .map((a) => {
                 return `${a.artistName} - **${a.albumName}** (${a.playCount} plays)`;
               })
@@ -286,48 +333,5 @@ export default declareCommand({
   dependsOn: z.object({
     lastFMApiKey: z.string(),
   }),
-  slashCommand: new SlashCommandBuilder()
-    .setName("top")
-    .setDescription("get top music")
-    .setIntegrationTypes([ApplicationIntegrationType.UserInstall])
-    .addStringOption((option) => {
-      return option
-        .setName("type")
-        .setDescription("type of top listens")
-        .addChoices(
-          { name: "Tracks", value: "track" },
-          { name: "Artists", value: "artist" },
-          { name: "Albums", value: "album" },
-        )
-        .setRequired(false);
-    })
-    .addIntegerOption((option) => {
-      return option.setName("amount").setDescription("number of items returned").setRequired(false);
-    })
-    .addStringOption((option) => {
-      return option.setName("user").setDescription("username").setRequired(false);
-    })
-    .addStringOption((option) => {
-      return option
-        .setName("platform")
-        .setDescription("scrobble platform")
-        .addChoices(
-          { name: "Last.fm", value: "lastfm" },
-          { name: "ListenBrainz", value: "listenbrainz" },
-        )
-        .setRequired(false);
-    })
-    .addUserOption((option) => {
-      return option
-        .setName("discord_user")
-        .setDescription(
-          "a user with their music account saved by the bot. has priority over other options",
-        )
-        .setRequired(false);
-    })
-    .setContexts([
-      InteractionContextType.BotDM,
-      InteractionContextType.Guild,
-      InteractionContextType.PrivateChannel,
-    ]),
+  slashCommand,
 });
