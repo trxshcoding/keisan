@@ -33,6 +33,39 @@ interface TopMusicAlbum {
 }
 
 const topMusicTypes = ["track", "artist", "album"] as const;
+const artistCache = {} as { [id: string]: string[] };
+
+function fuzzySearch(query: string, suggestions: string[]): string[] {
+  const lower = query.toLowerCase();
+  const results: string[] = [];
+  const seen = new Set<string>();
+
+  const add = (name: string) => {
+    const key = name.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    results.push(name);
+  };
+
+  const exact = suggestions.find((s) => s.toLowerCase() === lower);
+  if (exact) add(exact);
+  else add(query);
+
+  for (const s of suggestions) if (s.toLowerCase().startsWith(lower)) add(s);
+
+  for (const s of suggestions)
+    if (
+      s
+        .toLowerCase()
+        .split(/\s+/)
+        .some((word) => word.startsWith(lower))
+    )
+      add(s);
+
+  for (const s of suggestions) if (s.toLowerCase().includes(lower)) add(s);
+
+  return results.slice(0, 25);
+}
 
 const topMusicListenbrainz = {
   getTracks: async (
@@ -118,7 +151,7 @@ const topMusicLastFM = {
     token: string,
   ): Promise<{ status: "OK"; data: TopMusicTrack[] } | { status: FailureStatus }> => {
     const response = await httpJson(
-      `https://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${username}&api_key=${token}&format=json`,
+      `https://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${username}&api_key=${token}&limit=1000&format=json`,
     ).catch((error) => {
       if (error.response && error.response.status === 404) {
         return { iserror: true, status: "USERNOTFOUND" satisfies FailureStatus };
@@ -142,7 +175,7 @@ const topMusicLastFM = {
     token: string,
   ): Promise<{ status: "OK"; data: TopMusicArtist[] } | { status: FailureStatus }> => {
     const response = await httpJson(
-      `https://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${username}&api_key=${token}&format=json`,
+      `https://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${username}&api_key=${token}&limit=1000&format=json`,
     ).catch((error) => {
       if (error.response && error.response.status === 404) {
         return { iserror: true, status: "USERNOTFOUND" satisfies FailureStatus };
@@ -165,7 +198,7 @@ const topMusicLastFM = {
     token: string,
   ): Promise<{ status: "OK"; data: TopMusicAlbum[] } | { status: FailureStatus }> => {
     const response = await httpJson(
-      `https://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${username}&api_key=${token}&format=json`,
+      `https://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${username}&api_key=${token}&limit=1000&format=json`,
     ).catch((error) => {
       if (error.response && error.response.status === 404) {
         return { iserror: true, status: "USERNOTFOUND" satisfies FailureStatus };
@@ -196,10 +229,19 @@ const slashCommand = new SlashCommandBuilder()
     InteractionContextType.PrivateChannel,
   ]);
 for (const type of topMusicTypes) {
+  let baseSubcommand = new SlashCommandSubcommandBuilder()
+    .setName(type + "s")
+    .setDescription(`get top ${type}s for a user`);
+  if (["track", "album"].includes(type))
+    baseSubcommand = baseSubcommand.addStringOption((option) => {
+      return option
+        .setName("artist")
+        .setDescription("filter for a specific artist")
+        .setAutocomplete(true)
+        .setRequired(false);
+    });
   slashCommand.addSubcommand(
-    new SlashCommandSubcommandBuilder()
-      .setName(type + "s")
-      .setDescription(`get top ${type}s for a user`)
+    baseSubcommand
       .addIntegerOption((option) => {
         return option
           .setName("amount")
@@ -235,7 +277,10 @@ export default declareCommand({
     await interaction.deferReply();
     const rawAmount = interaction.options.getInteger("amount");
     const amount = clamp(0, rawAmount ?? 3, 20);
-    const type = interaction.options.getSubcommand(true) as (typeof topMusicTypes)[number];
+    const type = interaction.options
+      .getSubcommand(true)
+      .replace(/s$/, "") as (typeof topMusicTypes)[number];
+    const artist = interaction.options.getString("artist", false);
     const musicUser = await resolveMusicUser(interaction, config.prisma).catch(
       (e: Error) =>
         void interaction.followUp({
@@ -259,9 +304,12 @@ export default declareCommand({
             return;
           case "OK": {
             list = res.data
+              .filter((t) =>
+                artist ? t.artistName.toLocaleLowerCase() === artist.toLowerCase() : true,
+              )
               .toSpliced(amount)
-              .map((a) => {
-                return `${a.artistName} - **${a.name}** (${a.playCount} plays)`;
+              .map((t) => {
+                return `${artist ? "" : `${t.artistName} - `}**${t.name}** (${t.playCount} plays)`;
               })
               .join("\n");
             break;
@@ -301,9 +349,12 @@ export default declareCommand({
             return;
           case "OK": {
             list = res.data
+              .filter((al) =>
+                artist ? al.artistName.toLocaleLowerCase() === artist.toLowerCase() : true,
+              )
               .toSpliced(amount)
-              .map((a) => {
-                return `${a.artistName} - **${a.albumName}** (${a.playCount} plays)`;
+              .map((al) => {
+                return `${artist ? "" : `${al.artistName} - `}**${al.albumName}** (${al.playCount} plays)`;
               })
               .join("\n");
             break;
@@ -317,18 +368,47 @@ export default declareCommand({
       new ContainerBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
-            `${musicUser.username} (${musicUser.useLastFM ? "lastFM" : "listenbrainz"}) top ${type}s`,
+            `${musicUser.username} (${musicUser.useLastFM ? "last.fm" : "listenbrainz"})'s top ${type}s ${artist ? `by ${artist}` : ""}`,
           ),
         )
         .addSeparatorComponents(
           new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true),
         )
-        .addTextDisplayComponents(new TextDisplayBuilder().setContent(list)),
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(list || "nothin' here")),
     ];
     await interaction.followUp({
       components,
       flags: [MessageFlags.IsComponentsV2],
     });
+  },
+  autoComplete: async (interaction, config, option) => {
+    const focusedValue = option.value.toLowerCase();
+    const query = focusedValue.trim().slice(0, 100);
+    if (!query) return void interaction.respond([]);
+    if (option.name !== "artist") return void interaction.respond([{ name: query, value: query }]);
+    let artistSuggestions = artistCache[interaction.user.id];
+
+    if (!artistSuggestions) {
+      const user = await config.prisma.user.findFirst({
+        where: { id: interaction.user.id },
+      });
+      if (!user || !user.musicUsername)
+        return void interaction.respond([{ name: query, value: query }]);
+
+      const topArtists = await (
+        user.musicUsesListenbrainz ? topMusicListenbrainz : topMusicLastFM
+      ).getArtists(user.musicUsername, config.lastFMApiKey);
+      if (topArtists.status !== "OK")
+        return void interaction.respond([{ name: query, value: query }]);
+
+      artistCache[interaction.user.id] = topArtists.data.map((a) => a.artistName);
+      artistSuggestions = artistCache[interaction.user.id];
+      setTimeout(() => delete artistCache[interaction.user.id], 3600_000);
+    }
+
+    const matches = fuzzySearch(query, artistSuggestions);
+    if (matches.length === 0) return void interaction.respond([{ name: query, value: query }]);
+    return void interaction.respond(matches.map((name) => ({ name, value: name })));
   },
   dependsOn: z.object({
     lastFMApiKey: z.string(),
