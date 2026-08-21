@@ -13,7 +13,7 @@ import {
 import { z } from "zod";
 import { PrismaClient } from "./generated/prisma/index.js";
 import type { Config } from "./config.ts";
-import { escapeMarkdown, numberFaggtory } from "./utils/general.ts";
+import { escapeMarkdown, numberFaggtory, tryCatch } from "./utils/general.ts";
 import { calculateTextHeight, wrapText } from "./utils/canvas.ts";
 import {
   createCanvas,
@@ -21,7 +21,7 @@ import {
   loadImage,
   type CanvasRenderingContext2D,
 } from "@napi-rs/canvas";
-import { httpBuffer, httpJson } from "./lib/http.ts";
+import { http, httpBuffer, httpJson } from "./lib/http.ts";
 import sharp from "sharp";
 import { fromPublic } from "./lib/paths.ts";
 import { MusicBrainzApi } from "musicbrainz-api";
@@ -136,6 +136,7 @@ export const deezerResponseShape = z.object({
       album: z.object({
         title: z.string(),
         cover_big: z.string().optional(),
+        cover_xl: z.string().optional(),
       }),
     }),
   ),
@@ -291,10 +292,17 @@ export type MusicSearchResult = {
   artworkIsLowQuality: boolean;
 };
 
+const searchPlatformCache = new Map<string, { at: number; data: MusicSearchResult | null }>();
+const searchPlatformCacheTtl = 60 * 60 * 1000;
+
 export async function searchMusicPlatforms(
   title: string,
   artist?: string,
 ): Promise<MusicSearchResult | null> {
+  const cacheKey = `${artist ?? ""}::${title}`.toLowerCase();
+  const cached = searchPlatformCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < searchPlatformCacheTtl) return cached.data;
+
   const deezerParams = artist
     ? {
         q: `artist:"${artist}" track:"${title}"`,
@@ -306,6 +314,8 @@ export async function searchMusicPlatforms(
     await httpJson(`https://api.deezer.com/search?${new URLSearchParams(deezerParams).toString()}`),
   ).data?.data;
 
+  let result: MusicSearchResult | null = null;
+
   if (Array.isArray(deezerInfo) && deezerInfo[0]) {
     const track =
       deezerInfo.find((res) => res.title === title) ||
@@ -313,36 +323,37 @@ export async function searchMusicPlatforms(
       deezerInfo[0];
 
     const cleanedAlbum = track.album.title.replace(/ - (?:Single|EP)$/, "");
-    return {
+    result = {
       link: track.link,
       albumName: cleanedAlbum !== title ? cleanedAlbum : "",
-      artworkUrl: track.album.cover_big,
+      artworkUrl: track.album.cover_xl || track.album.cover_big,
       artworkIsLowQuality: false,
     };
+  } else {
+    const iTunesInfo = itunesResponseShape.safeParse(
+      await httpJson(
+        `https://itunes.apple.com/search?${new URLSearchParams({ entity: "song", term: `${artist || ""} ${title}`.trim() }).toString()}`,
+      ),
+    ).data?.results;
+
+    if (Array.isArray(iTunesInfo) && iTunesInfo[0]) {
+      const track =
+        iTunesInfo.find((res) => res.trackName === title) ||
+        iTunesInfo.find((res) => res.trackName.toLowerCase() === title.toLowerCase()) ||
+        iTunesInfo[0];
+
+      const cleanedAlbum = track.collectionName.replace(/ - (?:Single|EP)$/, "");
+      result = {
+        link: track.trackViewUrl,
+        albumName: cleanedAlbum !== title ? cleanedAlbum : "",
+        artworkUrl: track.artworkUrl100?.replace(/100x100bb\.jpg$/, "1200x1200bb.jpg"),
+        artworkIsLowQuality: false,
+      };
+    }
   }
 
-  const iTunesInfo = itunesResponseShape.safeParse(
-    await httpJson(
-      `https://itunes.apple.com/search?${new URLSearchParams({ entity: "song", term: `${artist || ""} ${title}`.trim() }).toString()}`,
-    ),
-  ).data?.results;
-
-  if (Array.isArray(iTunesInfo) && iTunesInfo[0]) {
-    const track =
-      iTunesInfo.find((res) => res.trackName === title) ||
-      iTunesInfo.find((res) => res.trackName.toLowerCase() === title.toLowerCase()) ||
-      iTunesInfo[0];
-
-    const cleanedAlbum = track.collectionName.replace(/ - (?:Single|EP)$/, "");
-    return {
-      link: track.trackViewUrl,
-      albumName: cleanedAlbum !== title ? cleanedAlbum : "",
-      artworkUrl: track.artworkUrl100,
-      artworkIsLowQuality: true,
-    };
-  }
-
-  return null;
+  searchPlatformCache.set(cacheKey, { at: Date.now(), data: result });
+  return result;
 }
 
 export async function lobotomizedSongButton(
@@ -407,6 +418,182 @@ export function kyzaify(input: string): string {
   }
 
   return result;
+}
+
+export type ResolvedTrack = {
+  title?: string;
+  artist?: string;
+  album?: string;
+  coverUrl?: string;
+  coverIsHighQuality: boolean;
+};
+
+const resolvedTrackCache = {} as Record<string, ResolvedTrack>;
+const resolvedTrackCacheTTL = 60 * 60 * 1000;
+
+function linkProvider(link: string): string | null {
+  try {
+    const host = new URL(link).hostname.replace(/^www\./, "").toLowerCase();
+    if (host === "open.spotify.com") return "spotify";
+    if (host === "music.youtube.com") return "youtubeMusic";
+    if (host === "youtube.com" || host === "youtu.be" || host === "m.youtube.com") return "youtube";
+    if (host === "music.apple.com" || host === "itunes.apple.com") return "appleMusic";
+    if (host === "deezer.com" || host === "deezer.page.link") return "deezer";
+    if (host === "soundcloud.com" || host === "snd.sc") return "soundcloud";
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function songLinkLabel(link: string): string {
+  switch (linkProvider(link)) {
+    case "spotify":
+      return "Spotify";
+    case "youtubeMusic":
+      return "YouTube Music";
+    case "youtube":
+      return "YouTube";
+    case "appleMusic":
+      return "Apple Music";
+    case "deezer":
+      return "Deezer";
+    case "soundcloud":
+      return "SoundCloud";
+    default:
+      return "link";
+  }
+}
+
+async function followRedirects(link: string): Promise<string> {
+  const host = new URL(link).hostname.replace(/^www\./, "").toLowerCase();
+  if (host !== "deezer.page.link" && host !== "snd.sc") return link;
+  try {
+    const res = await http.raw(link, { method: "HEAD", timeout: 5_000 });
+    if (res.url && res.url !== link) return res.url;
+  } catch {}
+  return link;
+}
+
+async function resolveSpotify(link: string): Promise<ResolvedTrack | null> {
+  const id = new URL(link).pathname.match(/\/track\/([A-Za-z0-9]+)/)?.[1];
+  if (!id) return null;
+  const [oembed] = await tryCatch(
+    httpJson(`https://open.spotify.com/oembed?url=${encodeURIComponent(link)}`),
+  );
+  if (!oembed?.thumbnail_url) return null;
+  const coverUrl = oembed.thumbnail_url.includes("/ab67616d00001e02")
+    ? oembed.thumbnail_url.replace("/ab67616d00001e02", "/ab67616d0000b273")
+    : oembed.thumbnail_url;
+  return { title: oembed.title, coverUrl, coverIsHighQuality: true };
+}
+
+function extractYouTubeId(link: string): string | null {
+  const url = new URL(link);
+  if (url.hostname.replace(/^www\./, "").toLowerCase() === "youtu.be") {
+    return url.pathname.slice(1) || null;
+  }
+  return url.searchParams.get("v");
+}
+
+async function resolveYouTube(link: string): Promise<ResolvedTrack | null> {
+  const id = extractYouTubeId(link);
+  if (!id) return null;
+  const maxresExists = await http
+    .raw(`https://i.ytimg.com/vi/${id}/maxresdefault.jpg`, { method: "HEAD" })
+    .then((res) => res.ok)
+    .catch(() => false);
+  const [oembed] = await tryCatch(
+    httpJson(`https://www.youtube.com/oembed?url=${encodeURIComponent(link)}&format=json`),
+  );
+  return {
+    title: oembed?.title,
+    artist: oembed?.author_name,
+    coverUrl: maxresExists
+      ? `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`
+      : oembed?.thumbnail_url,
+    coverIsHighQuality: maxresExists,
+  };
+}
+
+async function resolveAppleMusic(link: string): Promise<ResolvedTrack | null> {
+  const url = new URL(link);
+  const trackId = url.searchParams.get("i") ?? url.pathname.split("/").pop();
+  if (!trackId || !/^\d+$/.test(trackId)) return null;
+  const [lookup] = await tryCatch(httpJson(`https://itunes.apple.com/lookup?id=${trackId}`));
+  const track = lookup?.results?.[0];
+  if (!track || track.kind !== "song") return null;
+  const coverUrl = track.artworkUrl100?.replace(/100x100bb\.jpg$/, "1200x1200bb.jpg");
+  return {
+    title: track.trackName,
+    artist: track.artistName,
+    album: track.collectionName,
+    coverUrl,
+    coverIsHighQuality: !!coverUrl,
+  };
+}
+
+async function resolveDeezer(link: string): Promise<ResolvedTrack | null> {
+  const url = new URL(await followRedirects(link));
+  const id = url.pathname.match(/\/track\/(\d+)/)?.[1];
+  if (!id) return null;
+  const [track] = await tryCatch(httpJson(`https://api.deezer.com/track/${id}`));
+  if (!track?.id) return null;
+  return {
+    title: track.title,
+    artist: track.artist?.name,
+    album: track.album?.title,
+    coverUrl: track.album?.cover_xl,
+    coverIsHighQuality: true,
+  };
+}
+
+async function resolveSoundCloud(link: string): Promise<ResolvedTrack | null> {
+  const url = await followRedirects(link);
+  if (!/soundcloud\.com/.test(url)) return null;
+  const [oembed] = await tryCatch(
+    httpJson(`https://soundcloud.com/oembed?url=${encodeURIComponent(url)}&format=json`),
+  );
+  if (!oembed?.thumbnail_url) return null;
+  const artist = oembed.author_name;
+  const title =
+    artist && oembed.title?.endsWith(` by ${artist}`)
+      ? oembed.title.slice(0, -` by ${artist}`.length)
+      : oembed.title;
+  return {
+    title,
+    artist,
+    coverUrl: oembed.thumbnail_url,
+    coverIsHighQuality: oembed.thumbnail_url.includes("t500x500"),
+  };
+}
+
+async function resolveTrackFromLinkUncached(link: string): Promise<ResolvedTrack | null> {
+  switch (linkProvider(link)) {
+    case "spotify":
+      return resolveSpotify(link);
+    case "youtube":
+    case "youtubeMusic":
+      return resolveYouTube(link);
+    case "appleMusic":
+      return resolveAppleMusic(link);
+    case "deezer":
+      return resolveDeezer(link);
+    case "soundcloud":
+      return resolveSoundCloud(link);
+    default:
+      return null;
+  }
+}
+
+export async function resolveTrackFromLink(link: string): Promise<ResolvedTrack | null> {
+  const cached = resolvedTrackCache[link];
+  if (cached) return cached;
+  const resolved = await resolveTrackFromLinkUncached(link);
+
+  if (resolved) resolvedTrackCache[link] = resolved;
+  setTimeout(() => delete resolvedTrackCache[link], resolvedTrackCacheTTL);
+  return resolved;
 }
 
 const coverArtPlaceholder = await loadImage("https://files.keisan.trashcod.ing/placeholder.png");

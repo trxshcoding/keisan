@@ -14,14 +14,11 @@ import {
 
 import {
   generateNowplayingImage,
-  getSongOnPreferredProvider,
   type HistoryItem,
-  lobotomizedSongButton,
-  musicCache,
-  type SongLink,
   resolveMusicUser,
   searchMusicPlatforms,
-  injectSonglinkEntries,
+  resolveTrackFromLink,
+  songLinkLabel,
 } from "../music.ts";
 import { createResizedEmoji } from "../utils/discord.ts";
 import { escapeMarkdown, tryCatch } from "../utils/general.ts";
@@ -69,6 +66,31 @@ const slashCommand = new SlashCommandBuilder()
 import type { IRelease } from "musicbrainz-api";
 
 type Status = "OK" | "NOTLISTENING" | "USERNOTFOUND" | "UNKNOWNERROR";
+
+type MusicBrainzInfo = {
+  songname: string;
+  albumname: string;
+  albumartlink: string;
+};
+
+const lastfmScrapeCache = {} as Record<string, { link?: string }>;
+const lastfmScrapeCacheTTL = 60 * 60 * 1000;
+const mbCache = {} as Record<string, { data: MusicBrainzInfo | null }>;
+const mbCacheTTL = 60 * 60 * 1000;
+
+async function getMBInfo(mbid: string, songTitle: string): Promise<MusicBrainzInfo | null> {
+  const cached = mbCache[mbid];
+  if (cached) return cached.data;
+
+  const [info] = await tryCatch(
+    mbApi
+      .lookup("release", mbid, ["recordings", "artists", "labels", "url-rels", "release-groups"])
+      .then((release) => getMusicBrainzInfo(release, songTitle)),
+  );
+  mbCache[mbid] = { data: info };
+  setTimeout(() => delete mbCache[mbid], mbCacheTTL);
+  return info ?? null;
+}
 
 async function getNowPlayingLastFM(
   username: string,
@@ -132,18 +154,7 @@ async function getNowPlaying(
     let albumArt: string | undefined = undefined;
 
     if (additionalInfo.release_mbid) {
-      const [musicBrainzInfo] = await tryCatch(
-        mbApi
-          .lookup("release", additionalInfo.release_mbid, [
-            "recordings",
-            "artists",
-            "labels",
-            "url-rels",
-            "release-groups",
-          ])
-          .then((release) => getMusicBrainzInfo(release, songName)),
-      );
-
+      const musicBrainzInfo = await getMBInfo(additionalInfo.release_mbid, songName);
       if (musicBrainzInfo) {
         songName = musicBrainzInfo.songname;
         if (
@@ -172,36 +183,37 @@ async function getNowPlaying(
       return { status: "error", err: res.status };
     } else {
       const track = res.data.recenttracks.track[0];
-      // yes its a string, horror
 
       let coverArt = track.image?.at(-1)["#text"];
       if (coverArt && coverArt.includes("2a96cbd8b46e442fc41c2b86b821562f")) coverArt = undefined;
 
-      const [content, coverArtRes] = await Promise.all([
-        (await fetch(track.url)).text(),
+      const cacheKey = track.url;
+      const page = lastfmScrapeCache[cacheKey];
+      const scrapePromise = page
+        ? Promise.resolve(undefined)
+        : (async () => {
+            const content = await (await fetch(track.url)).text();
+            const spotify = content.match(
+              /play-this-track-playlink--spotify(?:.{0,500})href="(.+?)"/s,
+            )?.[1];
+
+            lastfmScrapeCache[cacheKey] = { link: spotify };
+            setTimeout(() => delete lastfmScrapeCache[cacheKey], lastfmScrapeCacheTTL);
+            return spotify;
+          })();
+
+      const [spotifyLink, coverArtRes] = await Promise.all([
+        scrapePromise,
         coverArt ? fetch(coverArt, { method: "HEAD" }) : Promise.resolve({ ok: false } as const),
       ]);
-      const youtubeMatch = content.match(
-        /play-this-track-playlink--youtube(?:.{0,500})href="(.+?)"/s,
-      );
-      const spotifyMatch = content.match(
-        /play-this-track-playlink--spotify(?:.{0,500})href="(.+?)"/s,
-      );
 
       const historyItem: HistoryItem = {
         songName: track.name,
         artistName: track.artist["#text"],
         albumName: track.album["#text"],
         albumArt: coverArt && coverArtRes.ok ? coverArt : undefined,
-        extraLinks: [],
       };
-      if (spotifyMatch?.[1]) historyItem.link = spotifyMatch[1];
-      if (youtubeMatch?.[1])
-        historyItem.extraLinks!.push({
-          name: "YouTube",
-          url: youtubeMatch[1],
-          uniqueId: `YOUTUBE_SONG::${youtubeMatch[1].slice(-11)}`,
-        });
+      if (spotifyLink) historyItem.link = spotifyLink;
 
       return {
         status: "ok",
@@ -242,19 +254,6 @@ async function getMusicBrainzInfo(
   }
 }
 
-async function fetchSongLink(link: string): Promise<SongLink | null> {
-  try {
-    const songlink = await httpJson<SongLink>(
-      `https://api.song.link/v1-alpha.1/links?url=${link}`,
-      { timeout: 30_000 },
-    );
-    return songlink;
-  } catch (error) {
-    console.error("Failed to fetch song.link:", error);
-    return null;
-  }
-}
-
 export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, config): Promise<void> {
     await interaction.deferReply();
@@ -273,7 +272,6 @@ export default declareCommand({
       musicUser.username,
       musicUser.useLastFM ? config.lastFMApiKey : undefined,
     );
-
     if (nowPlayingRes.status === "error") {
       switch (nowPlayingRes.err) {
         case "NOTLISTENING":
@@ -286,6 +284,7 @@ export default declareCommand({
           await interaction.followUp(`user ${musicUser.username} not found`);
           return;
         default:
+          await interaction.followUp("unexpected error; please try again shortly");
           return;
       }
     }
@@ -297,16 +296,24 @@ export default declareCommand({
     if (nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "") === nowPlaying.songName)
       nowPlaying.albumName = "";
 
-    if (!link) {
-      const searchResult = await searchMusicPlatforms(nowPlaying.songName, nowPlaying.artistName);
-      if (searchResult) {
-        link = searchResult.link;
-        if (!nowPlaying.albumName && searchResult.albumName)
-          nowPlaying.albumName = searchResult.albumName;
-        if (searchResult.artworkUrl) {
-          if (searchResult.artworkIsLowQuality) lowQualityCoverLink = searchResult.artworkUrl;
-          else highQualityCoverLink = searchResult.artworkUrl;
+    if (link) {
+      const resolved = await resolveTrackFromLink(link);
+      if (resolved) {
+        if (resolved.title) nowPlaying.songName = resolved.title;
+        if (resolved.artist) nowPlaying.artistName = resolved.artist;
+        if (resolved.album && !nowPlaying.albumName) nowPlaying.albumName = resolved.album;
+        if (resolved.coverUrl) {
+          if (resolved.coverIsHighQuality) highQualityCoverLink = resolved.coverUrl;
+          else lowQualityCoverLink = resolved.coverUrl;
         }
+      }
+    }
+    if (!link || (!highQualityCoverLink && !lowQualityCoverLink)) {
+      const searchResult = await searchMusicPlatforms(nowPlaying.songName, nowPlaying.artistName);
+      if (!link && searchResult) link = searchResult.link;
+      if (!highQualityCoverLink && searchResult?.artworkUrl) {
+        if (searchResult.artworkIsLowQuality) lowQualityCoverLink = searchResult.artworkUrl;
+        else highQualityCoverLink = searchResult.artworkUrl;
       }
     }
 
@@ -315,13 +322,7 @@ export default declareCommand({
 -# by ${escapeMarkdown(np.artistName)}\
 ${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
     };
-    const loadingButton = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      new ButtonBuilder()
-        .setStyle(ButtonStyle.Secondary)
-        .setLabel("loading streaming links...")
-        .setCustomId("loading-placeholder")
-        .setDisabled(true),
-    );
+    const coverLink = highQualityCoverLink || lowQualityCoverLink;
 
     if (!link) {
       if (shouldImageGen) {
@@ -336,7 +337,7 @@ ${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
       }
 
       let emoji: ApplicationEmoji | null = null;
-      if (highQualityCoverLink || lowQualityCoverLink)
+      if (coverLink)
         emoji = await createResizedEmoji(interaction, highQualityCoverLink || lowQualityCoverLink!);
 
       await interaction.followUp({
@@ -347,101 +348,29 @@ ${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
       return;
     }
 
-    const coverLink = highQualityCoverLink || lowQualityCoverLink;
-    let emoji: ApplicationEmoji | null = null;
-    let initialContent;
+    const components = [
+      new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+        new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(link).setLabel(songLinkLabel(link)),
+      ),
+    ];
 
     if (shouldImageGen) {
       const img = await generateNowplayingImage(nowPlaying, coverLink);
-      initialContent = {
+      await interaction.followUp({
         files: [new AttachmentBuilder(img).setName("nowplaying.png")],
-      };
-    } else {
-      if (coverLink) {
-        emoji = await createResizedEmoji(interaction, coverLink);
-      }
-      initialContent = { content: nowPlayingContent(nowPlaying, emoji) };
+        components,
+      });
+      return;
     }
 
+    let emoji: ApplicationEmoji | null = null;
+    if (coverLink) emoji = await createResizedEmoji(interaction, coverLink);
     await interaction.followUp({
-      ...initialContent,
-      components: [loadingButton],
+      content: nowPlayingContent(nowPlaying, emoji),
+      components,
     });
-    const sendSonglinkFallback = async () =>
-      shouldImageGen
-        ? await interaction.editReply({
-            ...initialContent,
-            content: `-# couldn't find streaming links`,
-            components: [],
-          })
-        : await interaction.editReply({
-            content: `${initialContent.content}
--# couldn't find streaming links`,
-            components: [],
-          });
-
-    fetchSongLink(link)
-      .then(async (songlink) => {
-        if (!songlink || !songlink.pageUrl) {
-          await sendSonglinkFallback();
-          return;
-        }
-        injectSonglinkEntries(songlink, nowPlaying.extraLinks);
-        const preferredApi = getSongOnPreferredProvider(songlink, link);
-        if (!preferredApi) {
-          await sendSonglinkFallback();
-          return;
-        }
-
-        const finalNowPlaying = {
-          ...nowPlaying,
-          songName: preferredApi.title,
-          artistName: preferredApi.artist,
-        };
-        let finalContent;
-        if (shouldImageGen) {
-          if (!highQualityCoverLink) {
-            const img = await generateNowplayingImage(nowPlaying, preferredApi.thumbnailUrl);
-            finalContent = {
-              files: [new AttachmentBuilder(img).setName("nowplaying.png")],
-            };
-          } else finalContent = initialContent;
-        } else {
-          if (!highQualityCoverLink) {
-            if (emoji) await emoji.delete();
-            emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
-          }
-          finalContent = { content: nowPlayingContent(finalNowPlaying, emoji) };
-        }
-
-        const finalComponents = [
-          new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-            new ButtonBuilder()
-              .setStyle(ButtonStyle.Secondary)
-              .setLabel("expand")
-              .setCustomId(songlink.pageUrl),
-          ),
-        ];
-
-        musicCache[songlink.pageUrl] = {
-          preferredApi,
-          songlink,
-        };
-
-        await interaction.editReply({
-          ...finalContent,
-          components: finalComponents,
-        });
-      })
-      .catch(async (error) => {
-        console.error("Error in song.link fetch:", error);
-        await sendSonglinkFallback();
-      })
-      .finally(async () => {
-        if (emoji) await emoji.delete();
-      });
+    if (emoji) await emoji.delete();
   },
-  button: lobotomizedSongButton,
   dependsOn: z.object({
     lastFMApiKey: z.string(),
   }),
