@@ -265,10 +265,6 @@ async function getMusicBrainzInfo(
 export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, config): Promise<void> {
     await interaction.deferReply();
-    const responseType = (interaction.options.getString("view") || "emoji") as
-      | "emoji"
-      | "normal"
-      | "imagegen";
 
     const musicUser = await resolveMusicUser(interaction, config.prisma).catch(
       (e: Error) =>
@@ -278,6 +274,10 @@ export default declareCommand({
         }),
     );
     if (!musicUser) return;
+
+    const responseType = (interaction.options.getString("view") ||
+      musicUser.nowplayingView ||
+      "emoji") as "emoji" | "normal" | "imagegen";
 
     const nowPlayingRes = await getNowPlaying(
       musicUser.username,

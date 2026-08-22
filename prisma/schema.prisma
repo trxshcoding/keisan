@@ -20,6 +20,7 @@ model User {
   id                    String     @id
   musicUsername         String?
   musicUsesListenbrainz Boolean?
+  nowplayingView        String?
   shitposts             Shitpost[]
   partners              Partner[]
 }

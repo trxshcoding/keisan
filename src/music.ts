@@ -241,6 +241,7 @@ export const musicCache: Record<
 export type MusicUser = {
   username: string;
   useLastFM: boolean;
+  nowplayingView?: string | null;
 };
 
 export async function resolveMusicUser(
@@ -259,6 +260,7 @@ export async function resolveMusicUser(
     return {
       username: entry.musicUsername,
       useLastFM: !entry.musicUsesListenbrainz,
+      nowplayingView: entry.nowplayingView,
     };
   }
 
@@ -273,6 +275,7 @@ export async function resolveMusicUser(
       username: user ?? entry.musicUsername,
       useLastFM:
         useLastFMOption !== null ? useLastFMOption === "lastfm" : !entry.musicUsesListenbrainz,
+      nowplayingView: entry.nowplayingView,
     };
   }
 
