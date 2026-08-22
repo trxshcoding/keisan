@@ -10,6 +10,9 @@ import {
   type ApplicationEmoji,
   AttachmentBuilder,
   MessageFlags,
+  ComponentType,
+  ThumbnailBuilder,
+  type APIComponentInContainer,
 } from "discord.js";
 
 import {
@@ -31,12 +34,17 @@ const slashCommand = new SlashCommandBuilder()
   .setName("nowplaying")
   .setDescription("balls")
   .setIntegrationTypes([ApplicationIntegrationType.UserInstall])
-  .addBooleanOption((option) => {
-    return option
-      .setName("imagegen")
-      .setDescription("generate an image instead of text")
-      .setRequired(false);
-  })
+  .addStringOption((option) =>
+    option
+      .setName("view")
+      .setDescription("the way the response looks")
+      .setChoices([
+        { name: "Small", value: "emoji" },
+        { name: "Large", value: "normal" },
+        { name: "Image", value: "imagegen" },
+      ])
+      .setRequired(false),
+  )
   .addStringOption((option) => {
     return option.setName("user").setDescription("username").setRequired(false);
   })
@@ -190,7 +198,7 @@ async function getNowPlaying(
       const cacheKey = track.url;
       const page = lastfmScrapeCache[cacheKey];
       const scrapePromise = page
-        ? Promise.resolve(undefined)
+        ? Promise.resolve(page.link)
         : (async () => {
             const content = await (await fetch(track.url)).text();
             const spotify = content.match(
@@ -257,7 +265,10 @@ async function getMusicBrainzInfo(
 export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, config): Promise<void> {
     await interaction.deferReply();
-    const shouldImageGen = interaction.options.getBoolean("imagegen") ?? false;
+    const responseType = (interaction.options.getString("view") || "emoji") as
+      | "emoji"
+      | "normal"
+      | "imagegen";
 
     const musicUser = await resolveMusicUser(interaction, config.prisma).catch(
       (e: Error) =>
@@ -317,59 +328,116 @@ export default declareCommand({
       }
     }
 
-    const nowPlayingContent = (np: HistoryItem, emoji: ApplicationEmoji | null) => {
-      return `### ${escapeMarkdown(np.songName)} ${emoji?.toString() || ""}
--# by ${escapeMarkdown(np.artistName)}\
-${np.albumName ? ` - from ${escapeMarkdown(np.albumName)}` : ""}`;
-    };
     const coverLink = highQualityCoverLink || lowQualityCoverLink;
 
-    if (!link) {
-      if (shouldImageGen) {
+    switch (responseType) {
+      case "emoji": {
+        let emoji: ApplicationEmoji | null = null;
+        if (coverLink) emoji = await createResizedEmoji(interaction, coverLink);
+        let content = `### ${escapeMarkdown(nowPlaying.songName)} ${emoji?.toString() || ""}
+-# by ${escapeMarkdown(nowPlaying.artistName)}\
+${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}`;
+
+        const components = [] as ActionRowBuilder<MessageActionRowComponentBuilder>[];
+        if (link)
+          components.push(
+            new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+              new ButtonBuilder()
+                .setStyle(ButtonStyle.Link)
+                .setURL(link)
+                .setLabel(songLinkLabel(link)),
+            ),
+          );
+        else content += "\n-# couldn't find a streaming link";
+
+        await interaction.followUp({
+          content,
+          components,
+        });
+        if (emoji) void emoji.delete();
+        return;
+      }
+      case "normal": {
+        const components = [] as APIComponentInContainer[];
+        if (coverLink)
+          components.push({
+            type: ComponentType.Section,
+            accessory: new ThumbnailBuilder().setURL(coverLink).toJSON(),
+            components: [
+              {
+                type: ComponentType.TextDisplay,
+                content: `# ${escapeMarkdown(nowPlaying.songName)}`,
+              },
+              {
+                type: ComponentType.TextDisplay,
+                content: `${escapeMarkdown(nowPlaying.artistName)}${nowPlaying.albumName ? ` · *${escapeMarkdown(nowPlaying.albumName)}*` : ``}`,
+              },
+            ],
+          });
+        else
+          components.push(
+            {
+              type: ComponentType.TextDisplay,
+              content: `# ${escapeMarkdown(nowPlaying.songName)}`,
+            },
+            {
+              type: ComponentType.TextDisplay,
+              content: `${escapeMarkdown(nowPlaying.artistName)}${nowPlaying.albumName ? ` · *${escapeMarkdown(nowPlaying.albumName)}*` : ``}`,
+            },
+          );
+
+        if (link)
+          components.push({
+            type: ComponentType.ActionRow,
+            components: [
+              {
+                type: ComponentType.Button,
+                style: ButtonStyle.Link,
+                url: link,
+                label: songLinkLabel(link),
+              },
+            ],
+          });
+        else
+          components.push({
+            type: ComponentType.TextDisplay,
+            content: "-# couldn't find a streaming link",
+          });
+
+        await interaction.followUp({
+          components: [
+            {
+              type: ComponentType.Container,
+              components,
+            },
+          ],
+          flags: [MessageFlags.IsComponentsV2],
+        });
+        return;
+      }
+      case "imagegen": {
         const image = await generateNowplayingImage(
           nowPlaying,
           highQualityCoverLink || lowQualityCoverLink,
         );
+        const components = [] as ActionRowBuilder<MessageActionRowComponentBuilder>[];
+        if (link)
+          components.push(
+            new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+              new ButtonBuilder()
+                .setStyle(ButtonStyle.Link)
+                .setURL(link)
+                .setLabel(songLinkLabel(link)),
+            ),
+          );
+
         await interaction.followUp({
           files: [new AttachmentBuilder(image).setName("nowplaying.png")],
+          components,
         });
         return;
       }
-
-      let emoji: ApplicationEmoji | null = null;
-      if (coverLink)
-        emoji = await createResizedEmoji(interaction, highQualityCoverLink || lowQualityCoverLink!);
-
-      await interaction.followUp({
-        content: `${nowPlayingContent(nowPlaying, emoji)}
--# couldn't get more info about this song`,
-      });
-      if (emoji) await emoji.delete();
-      return;
     }
-
-    const components = [
-      new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-        new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(link).setLabel(songLinkLabel(link)),
-      ),
-    ];
-
-    if (shouldImageGen) {
-      const img = await generateNowplayingImage(nowPlaying, coverLink);
-      await interaction.followUp({
-        files: [new AttachmentBuilder(img).setName("nowplaying.png")],
-        components,
-      });
-      return;
-    }
-
-    let emoji: ApplicationEmoji | null = null;
-    if (coverLink) emoji = await createResizedEmoji(interaction, coverLink);
-    await interaction.followUp({
-      content: nowPlayingContent(nowPlaying, emoji),
-      components,
-    });
-    if (emoji) await emoji.delete();
   },
   dependsOn: z.object({
     lastFMApiKey: z.string(),
