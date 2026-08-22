@@ -12,15 +12,12 @@ import {
   SlashCommandBuilder,
   type MessageActionRowComponentBuilder,
 } from "discord.js";
-import {
-  generateNowplayingImage,
-  resolveTrackFromLink,
-  searchMusicPlatforms,
-  songLinkLabel,
-  trackContainer,
-} from "../music.ts";
 import { NO_EXTRA_CONFIG } from "../config.ts";
 import { declareCommand } from "../command.ts";
+import { trackContainer } from "../music/components.ts";
+import { generateNowplayingImage } from "../music/image.ts";
+import { resolveTrackFromLink, songLinkLabel } from "../music/link-resolve.ts";
+import { searchMusicPlatforms } from "../music/search.ts";
 
 export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, _config) {

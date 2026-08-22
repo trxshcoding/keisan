@@ -11,10 +11,10 @@ import {
   SlashCommandSubcommandBuilder,
   TextDisplayBuilder,
 } from "discord.js";
-import { resolveMusicUser } from "../music.ts";
 import { httpJson } from "../lib/http.ts";
 import { clamp } from "../utils/general.ts";
 import { z } from "zod";
+import { resolveMusicUser } from "../music/user.ts";
 
 type FailureStatus = "USERNOTFOUND" | "UNKNOWNERROR";
 interface TopMusicTrack {

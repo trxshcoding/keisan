@@ -13,14 +13,12 @@ import {
   type MessageActionRowComponentBuilder,
 } from "discord.js";
 import { z } from "zod";
-import {
-  resolveMusicUser,
-  resolveTrackFromLink,
-  searchMusicPlatforms,
-  trackContainer,
-} from "../music.ts";
 import { escapeMarkdown } from "../utils/general.ts";
 import { httpJson } from "../lib/http.ts";
+import { trackContainer } from "../music/components.ts";
+import { resolveTrackFromLink } from "../music/link-resolve.ts";
+import { searchMusicPlatforms } from "../music/search.ts";
+import { resolveMusicUser } from "../music/user.ts";
 
 type HistoryItem = {
   songName: string;

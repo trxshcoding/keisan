@@ -11,65 +11,18 @@ import {
   AttachmentBuilder,
   MessageFlags,
 } from "discord.js";
-
-import {
-  generateNowplayingImage,
-  type HistoryItem,
-  resolveMusicUser,
-  searchMusicPlatforms,
-  resolveTrackFromLink,
-  songLinkLabel,
-  trackContainer,
-} from "../music.ts";
+import type { IRelease } from "musicbrainz-api";
+import { z } from "zod";
 import { createResizedEmoji } from "../utils/discord.ts";
 import { escapeMarkdown, tryCatch } from "../utils/general.ts";
-import { mbApi } from "../music.ts";
 import { declareCommand } from "../command.ts";
-import { z } from "zod";
 import { http, httpJson } from "../lib/http.ts";
-
-const slashCommand = new SlashCommandBuilder()
-  .setName("nowplaying")
-  .setDescription("balls")
-  .setIntegrationTypes([ApplicationIntegrationType.UserInstall])
-  .addStringOption((option) =>
-    option
-      .setName("view")
-      .setDescription("the way the response looks")
-      .setChoices([
-        { name: "Small", value: "emoji" },
-        { name: "Large", value: "normal" },
-        { name: "Image", value: "imagegen" },
-      ])
-      .setRequired(false),
-  )
-  .addStringOption((option) => {
-    return option.setName("user").setDescription("username").setRequired(false);
-  })
-  .addStringOption((option) => {
-    return option
-      .setName("platform")
-      .setDescription("scrobble platform")
-      .addChoices(
-        { name: "Last.fm", value: "lastfm" },
-        { name: "ListenBrainz", value: "listenbrainz" },
-      )
-      .setRequired(false);
-  })
-  .addUserOption((option) => {
-    return option
-      .setName("discord_user")
-      .setDescription(
-        "a user with their music account saved by the bot. has priority over other options",
-      )
-      .setRequired(false);
-  })
-  .setContexts([
-    InteractionContextType.BotDM,
-    InteractionContextType.Guild,
-    InteractionContextType.PrivateChannel,
-  ]);
-import type { IRelease } from "musicbrainz-api";
+import { trackContainer } from "../music/components.ts";
+import { generateNowplayingImage } from "../music/image.ts";
+import { resolveTrackFromLink, songLinkLabel } from "../music/link-resolve.ts";
+import { mbApi, type HistoryItem } from "../music/schemas.ts";
+import { searchMusicPlatforms } from "../music/search.ts";
+import { resolveMusicUser } from "../music/user.ts";
 
 type Status = "OK" | "NOTLISTENING" | "USERNOTFOUND" | "UNKNOWNERROR";
 
@@ -259,6 +212,48 @@ async function getMusicBrainzInfo(
     return null;
   }
 }
+
+const slashCommand = new SlashCommandBuilder()
+  .setName("nowplaying")
+  .setDescription("balls")
+  .setIntegrationTypes([ApplicationIntegrationType.UserInstall])
+  .addStringOption((option) =>
+    option
+      .setName("view")
+      .setDescription("the way the response looks")
+      .setChoices([
+        { name: "Small", value: "emoji" },
+        { name: "Large", value: "normal" },
+        { name: "Image", value: "imagegen" },
+      ])
+      .setRequired(false),
+  )
+  .addStringOption((option) => {
+    return option.setName("user").setDescription("username").setRequired(false);
+  })
+  .addStringOption((option) => {
+    return option
+      .setName("platform")
+      .setDescription("scrobble platform")
+      .addChoices(
+        { name: "Last.fm", value: "lastfm" },
+        { name: "ListenBrainz", value: "listenbrainz" },
+      )
+      .setRequired(false);
+  })
+  .addUserOption((option) => {
+    return option
+      .setName("discord_user")
+      .setDescription(
+        "a user with their music account saved by the bot. has priority over other options",
+      )
+      .setRequired(false);
+  })
+  .setContexts([
+    InteractionContextType.BotDM,
+    InteractionContextType.Guild,
+    InteractionContextType.PrivateChannel,
+  ]);
 
 export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, config): Promise<void> {

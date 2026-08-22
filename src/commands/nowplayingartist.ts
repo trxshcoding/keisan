@@ -6,9 +6,10 @@ import {
   MessageFlags,
   SlashCommandBuilder,
 } from "discord.js";
-import { lFmArtistResponseShape, mBSearchResponseShape, resolveMusicUser } from "../music.ts";
 import { z } from "zod";
 import { httpJson } from "../lib/http.ts";
+import { mBSearchResponseShape, lFmArtistResponseShape } from "../music/schemas.ts";
+import { resolveMusicUser } from "../music/user.ts";
 
 async function getNowPlayingArtist(
   username: string,

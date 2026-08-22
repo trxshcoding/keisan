@@ -15,7 +15,7 @@ import { z } from "zod";
 import type Stream from "stream";
 import { wrapText } from "../utils/canvas.ts";
 import { http, httpJson, httpText } from "../lib/http.ts";
-import { resolveMusicUser } from "../music.ts";
+import { resolveMusicUser } from "../music/user.ts";
 
 async function urlToDataURI(url: string) {
   const response = await http.native(url);
