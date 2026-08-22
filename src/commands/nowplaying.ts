@@ -10,9 +10,6 @@ import {
   type ApplicationEmoji,
   AttachmentBuilder,
   MessageFlags,
-  ComponentType,
-  ThumbnailBuilder,
-  type APIComponentInContainer,
 } from "discord.js";
 
 import {
@@ -22,6 +19,7 @@ import {
   searchMusicPlatforms,
   resolveTrackFromLink,
   songLinkLabel,
+  trackContainer,
 } from "../music.ts";
 import { createResizedEmoji } from "../utils/discord.ts";
 import { escapeMarkdown, tryCatch } from "../utils/general.ts";
@@ -358,58 +356,15 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
         return;
       }
       case "normal": {
-        const components = [] as APIComponentInContainer[];
-        if (coverLink)
-          components.push({
-            type: ComponentType.Section,
-            accessory: new ThumbnailBuilder().setURL(coverLink).toJSON(),
-            components: [
-              {
-                type: ComponentType.TextDisplay,
-                content: `# ${escapeMarkdown(nowPlaying.songName)}`,
-              },
-              {
-                type: ComponentType.TextDisplay,
-                content: `${escapeMarkdown(nowPlaying.artistName)}${nowPlaying.albumName ? ` · *${escapeMarkdown(nowPlaying.albumName)}*` : ``}`,
-              },
-            ],
-          });
-        else
-          components.push(
-            {
-              type: ComponentType.TextDisplay,
-              content: `# ${escapeMarkdown(nowPlaying.songName)}`,
-            },
-            {
-              type: ComponentType.TextDisplay,
-              content: `${escapeMarkdown(nowPlaying.artistName)}${nowPlaying.albumName ? ` · *${escapeMarkdown(nowPlaying.albumName)}*` : ``}`,
-            },
-          );
-
-        if (link)
-          components.push({
-            type: ComponentType.ActionRow,
-            components: [
-              {
-                type: ComponentType.Button,
-                style: ButtonStyle.Link,
-                url: link,
-                label: songLinkLabel(link),
-              },
-            ],
-          });
-        else
-          components.push({
-            type: ComponentType.TextDisplay,
-            content: "-# couldn't find a streaming link",
-          });
-
         await interaction.followUp({
           components: [
-            {
-              type: ComponentType.Container,
-              components,
-            },
+            trackContainer({
+              songName: nowPlaying.songName,
+              artistName: nowPlaying.artistName,
+              albumName: nowPlaying.albumName,
+              coverUrl: coverLink,
+              link,
+            }),
           ],
           flags: [MessageFlags.IsComponentsV2],
         });

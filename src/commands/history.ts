@@ -14,12 +14,10 @@ import {
 } from "discord.js";
 import { z } from "zod";
 import {
-  getSongOnPreferredProvider,
-  musicCache,
-  songView,
-  type SongLink,
   resolveMusicUser,
+  resolveTrackFromLink,
   searchMusicPlatforms,
+  trackContainer,
 } from "../music.ts";
 import { escapeMarkdown } from "../utils/general.ts";
 import { httpJson } from "../lib/http.ts";
@@ -181,21 +179,18 @@ export default declareCommand({
           return;
         }
 
-        const songlink = await httpJson<SongLink>(
-          `https://api.song.link/v1-alpha.1/links?url=${link}`,
-        );
-        const preferredApi = getSongOnPreferredProvider(songlink, link!)!;
-        const cacheKey = songlink.pageUrl ?? link;
-        if (cacheKey) {
-          musicCache[cacheKey] ??= {
-            preferredApi,
-            songlink,
-          };
-        }
+        const resolved = await resolveTrackFromLink(link);
 
-        const components = songView(songlink, preferredApi, item.albumName);
         await interaction.followUp({
-          components,
+          components: [
+            trackContainer({
+              songName: resolved?.title ?? item.songName,
+              artistName: resolved?.artist ?? item.artistName,
+              albumName: item.albumName,
+              coverUrl: resolved?.coverUrl,
+              link,
+            }),
+          ],
           flags: [MessageFlags.IsComponentsV2],
         });
       }

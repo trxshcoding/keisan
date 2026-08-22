@@ -8,26 +8,28 @@ import {
   ButtonStyle,
   ChatInputCommandInteraction,
   InteractionContextType,
+  MessageFlags,
   SlashCommandBuilder,
   type MessageActionRowComponentBuilder,
 } from "discord.js";
 import {
   generateNowplayingImage,
-  getSongOnPreferredProvider,
-  lobotomizedSongButton,
-  musicCache,
-  type SongLink,
+  resolveTrackFromLink,
   searchMusicPlatforms,
+  songLinkLabel,
+  trackContainer,
 } from "../music.ts";
 import { NO_EXTRA_CONFIG } from "../config.ts";
 import { declareCommand } from "../command.ts";
-import { httpJson } from "../lib/http.ts";
 
 export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, _config) {
     await interaction.deferReply();
     const search = interaction.options.getString("search", true).trim();
-    const shouldImageGen = interaction.options.getBoolean("imagegen") ?? false;
+    const responseType = (interaction.options.getString("view") ?? "emoji") as
+      | "emoji"
+      | "normal"
+      | "imagegen";
     let link = "",
       albumName = "";
 
@@ -46,58 +48,82 @@ export default declareCommand({
       return;
     }
 
-    let preferredApi, songlink;
-    songlink = await httpJson<SongLink>(`https://api.song.link/v1-alpha.1/links?url=${link}`, {
-      timeout: 30_000,
-    });
-    preferredApi = getSongOnPreferredProvider(songlink, link)!;
-
-    const cacheKey = songlink.pageUrl ?? link;
-    if (cacheKey) {
-      musicCache[cacheKey] ??= {
-        preferredApi,
-        songlink,
-      };
-    }
-
-    const emoji = await createResizedEmoji(interaction, preferredApi.thumbnailUrl);
+    const resolved = await resolveTrackFromLink(link);
+    const songName = resolved?.title;
+    const artistName = resolved?.artist;
 
     const components = [
       new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-        new ButtonBuilder()
-          .setStyle(ButtonStyle.Secondary)
-          .setLabel("expand")
-          .setCustomId(songlink.pageUrl ?? link),
+        new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(link).setLabel(songLinkLabel(link)),
       ),
     ];
 
-    if (shouldImageGen) {
-      const image = await generateNowplayingImage(
-        {
-          songName: preferredApi.title,
-          artistName: preferredApi.artist,
-          albumName,
-        },
-        preferredApi.thumbnailUrl,
-      );
+    switch (responseType) {
+      case "emoji": {
+        const emoji = resolved?.coverUrl
+          ? await createResizedEmoji(interaction, resolved.coverUrl)
+          : null;
 
-      await interaction.followUp({
-        files: [new AttachmentBuilder(image).setName("nowplaying.png")],
-        components,
-      });
-      return;
+        await interaction.followUp({
+          content: `${
+            songName
+              ? `### ${escapeMarkdown(songName)} ${emoji ? String(emoji) : ""}
+-# by ${escapeMarkdown(artistName ?? "")}${albumName ? ` - from ${escapeMarkdown(albumName)}` : ""}`
+              : "couldn't fetch track info, but here's the link"
+          }`,
+          components,
+        });
+
+        if (emoji) void emoji.delete();
+        return;
+      }
+      case "normal": {
+        if (!songName) {
+          await interaction.followUp({
+            content: "couldn't fetch track info, but here's the link",
+            components,
+          });
+          return;
+        }
+        await interaction.followUp({
+          components: [
+            trackContainer({
+              songName,
+              artistName: artistName ?? "",
+              albumName,
+              coverUrl: resolved?.coverUrl,
+              link,
+            }),
+          ],
+          flags: [MessageFlags.IsComponentsV2],
+        });
+        return;
+      }
+      case "imagegen": {
+        if (!songName) {
+          await interaction.followUp({
+            content: "couldn't fetch track info, but here's the link",
+            components,
+          });
+          return;
+        }
+        const image = await generateNowplayingImage(
+          {
+            songName,
+            artistName: artistName ?? "",
+            albumName,
+          },
+          resolved?.coverUrl,
+        );
+
+        await interaction.followUp({
+          files: [new AttachmentBuilder(image).setName("nowplaying.png")],
+          components,
+        });
+        return;
+      }
     }
-
-    await interaction.followUp({
-      content: `### ${escapeMarkdown(preferredApi.title)} ${emoji ? String(emoji) : ""}
--# by ${escapeMarkdown(preferredApi.artist)}${albumName ? ` - from ${escapeMarkdown(albumName)}` : ""}`,
-      components,
-    });
-
-    await emoji?.delete();
-    return;
   },
-  button: lobotomizedSongButton,
   dependsOn: NO_EXTRA_CONFIG,
   slashCommand: new SlashCommandBuilder()
     .setName("musicinfo")
@@ -106,9 +132,17 @@ export default declareCommand({
     .addStringOption((option) => {
       return option.setName("search").setDescription("smth you wanna search").setRequired(true);
     })
-    .addBooleanOption((option) => {
-      return option.setName("imagegen").setDescription("show result as an image");
-    })
+    .addStringOption((option) =>
+      option
+        .setName("view")
+        .setDescription("the way the response looks")
+        .setChoices([
+          { name: "Small", value: "emoji" },
+          { name: "Large", value: "normal" },
+          { name: "Image", value: "imagegen" },
+        ])
+        .setRequired(false),
+    )
     .setContexts([
       InteractionContextType.BotDM,
       InteractionContextType.Guild,
