@@ -12,7 +12,16 @@ export type ResolvedTrack = {
 const resolvedTrackCache = {} as Record<string, ResolvedTrack>;
 const resolvedTrackCacheTTL = 60 * 60 * 1000;
 
-function linkProvider(link: string): string | null {
+type Providers =
+  | "spotify"
+  | "youtubeMusic"
+  | "youtube"
+  | "appleMusic"
+  | "tidal"
+  | "deezer"
+  | "soundcloud";
+
+function linkProvider(link: string): Providers | null {
   try {
     const host = new URL(link).hostname.replace(/^www\./, "").toLowerCase();
     if (host === "open.spotify.com") return "spotify";
