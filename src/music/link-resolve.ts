@@ -37,6 +37,20 @@ function linkProvider(link: string): Providers | null {
   }
 }
 
+export function removeQueryParams(url: string, paramsToKeep: string[]): string {
+  const urlObj = new URL(url);
+  const newSearchParams = new URLSearchParams();
+
+  for (const [key, value] of urlObj.searchParams.entries()) {
+    if (paramsToKeep.includes(key)) {
+      newSearchParams.append(key, value);
+    }
+  }
+
+  urlObj.search = newSearchParams.toString();
+  return urlObj.toString();
+}
+
 export function songLinkLabel(link: string): string {
   switch (linkProvider(link)) {
     case "spotify":

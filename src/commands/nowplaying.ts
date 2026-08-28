@@ -19,7 +19,7 @@ import { declareCommand } from "../command.ts";
 import { http, httpJson } from "../lib/http.ts";
 import { trackContainer } from "../music/components.ts";
 import { generateNowplayingImage } from "../music/image.ts";
-import { resolveTrackFromLink, songLinkLabel } from "../music/link-resolve.ts";
+import { removeQueryParams, resolveTrackFromLink, songLinkLabel } from "../music/link-resolve.ts";
 import { mbApi, type HistoryItem } from "../music/schemas.ts";
 import { searchMusicPlatforms } from "../music/search.ts";
 import { resolveMusicUser } from "../music/user.ts";
@@ -337,7 +337,7 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
             new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
               new ButtonBuilder()
                 .setStyle(ButtonStyle.Link)
-                .setURL(link)
+                .setURL(removeQueryParams(link, ["v"]))
                 .setLabel(songLinkLabel(link)),
             ),
           );
@@ -376,7 +376,7 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
             new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
               new ButtonBuilder()
                 .setStyle(ButtonStyle.Link)
-                .setURL(link)
+                .setURL(removeQueryParams(link, ["v"]))
                 .setLabel(songLinkLabel(link)),
             ),
           );
