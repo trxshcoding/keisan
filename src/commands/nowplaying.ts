@@ -19,7 +19,12 @@ import { declareCommand } from "../command.ts";
 import { http, httpJson } from "../lib/http.ts";
 import { trackContainer } from "../music/components.ts";
 import { generateNowplayingImage } from "../music/image.ts";
-import { removeQueryParams, resolveTrackFromLink, songLinkLabel } from "../music/link-resolve.ts";
+import {
+  linkProvider,
+  removeQueryParams,
+  resolveTrackFromLink,
+  songLinkLabel,
+} from "../music/link-resolve.ts";
 import { mbApi, type HistoryItem } from "../music/schemas.ts";
 import { searchMusicPlatforms } from "../music/search.ts";
 import { resolveMusicUser } from "../music/user.ts";
@@ -32,7 +37,7 @@ type MusicBrainzInfo = {
   albumartlink: string;
 };
 
-const lastfmScrapeCache = {} as Record<string, { link?: string }>;
+const lastfmScrapeCache = {} as Record<string, { spotify?: string; youtube?: string }>;
 const lastfmScrapeCacheTTL = 60 * 60 * 1000;
 const mbCache = {} as Record<string, { data: MusicBrainzInfo | null }>;
 const mbCacheTTL = 60 * 60 * 1000;
@@ -95,6 +100,24 @@ async function getNowPlayingListenbrainz(
   }
 }
 
+async function scrapeLastFM(url: string) {
+  try {
+    const content = await (await fetch(url)).text();
+    const spotify = content
+      .match(/play-this-track-playlink--spotify(?:.{0,500})href="(.+?)"/s)?.[1]
+      ?.replace(/&amp;/g, "&");
+    const youtube = content
+      .match(/play-this-track-playlink--youtube(?:.{0,500})href="(.+?)"/s)?.[1]
+      ?.replace(/&amp;/g, "&");
+
+    lastfmScrapeCache[url] = { spotify, youtube };
+    setTimeout(() => delete lastfmScrapeCache[url], lastfmScrapeCacheTTL);
+    return { spotify, youtube };
+  } catch {
+    return { spotify: undefined, youtube: undefined };
+  }
+}
+
 async function getNowPlaying(
   username: string,
   lastFMApiKey?: string,
@@ -146,22 +169,10 @@ async function getNowPlaying(
       let coverArt = track.image?.at(-1)["#text"];
       if (coverArt && coverArt.includes("2a96cbd8b46e442fc41c2b86b821562f")) coverArt = undefined;
 
-      const cacheKey = track.url;
-      const page = lastfmScrapeCache[cacheKey];
-      const scrapePromise = page
-        ? Promise.resolve(page.link)
-        : (async () => {
-            const content = await (await fetch(track.url)).text();
-            const spotify = content.match(
-              /play-this-track-playlink--spotify(?:.{0,500})href="(.+?)"/s,
-            )?.[1];
+      const page = lastfmScrapeCache[track.url];
+      const scrapePromise = page ? Promise.resolve(page) : scrapeLastFM(track.url);
 
-            lastfmScrapeCache[cacheKey] = { link: spotify };
-            setTimeout(() => delete lastfmScrapeCache[cacheKey], lastfmScrapeCacheTTL);
-            return spotify;
-          })();
-
-      const [spotifyLink, coverArtRes] = await Promise.all([
+      const [{ spotify, youtube }, coverArtRes] = await Promise.all([
         scrapePromise,
         coverArt ? fetch(coverArt, { method: "HEAD" }) : Promise.resolve({ ok: false } as const),
       ]);
@@ -171,8 +182,8 @@ async function getNowPlaying(
         artistName: track.artist["#text"],
         albumName: track.album["#text"],
         albumArt: coverArt && coverArtRes.ok ? coverArt : undefined,
+        link: spotify ?? youtube,
       };
-      if (spotifyLink) historyItem.link = spotifyLink;
 
       return {
         status: "ok",
@@ -300,7 +311,7 @@ export default declareCommand({
     if (nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "") === nowPlaying.songName)
       nowPlaying.albumName = "";
 
-    if (link) {
+    if (link && !(musicUser.useLastFM && linkProvider(link) === "youtube")) {
       const resolved = await resolveTrackFromLink(link);
       if (resolved) {
         if (resolved.title) nowPlaying.songName = resolved.title;

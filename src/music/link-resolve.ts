@@ -21,7 +21,7 @@ type Providers =
   | "deezer"
   | "soundcloud";
 
-function linkProvider(link: string): Providers | null {
+export function linkProvider(link: string): Providers | null {
   try {
     const host = new URL(link).hostname.replace(/^www\./, "").toLowerCase();
     if (host === "open.spotify.com") return "spotify";
