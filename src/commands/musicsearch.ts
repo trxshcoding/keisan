@@ -4,8 +4,6 @@ import {
   ActionRowBuilder,
   ApplicationIntegrationType,
   AttachmentBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   ChatInputCommandInteraction,
   InteractionContextType,
   MessageFlags,
@@ -14,9 +12,13 @@ import {
 } from "discord.js";
 import { NO_EXTRA_CONFIG } from "../config.ts";
 import { declareCommand } from "../command.ts";
-import { trackContainer } from "../music/components.ts";
+import { MusicLinkButton, MusicSearchButton, trackContainer } from "../music/components.ts";
 import { generateNowplayingImage } from "../music/image.ts";
-import { resolveTrackFromLink, songLinkLabel } from "../music/link-resolve.ts";
+import {
+  linkProvider,
+  resolveTrackFromLink,
+  userSearchableProviders,
+} from "../music/link-resolve.ts";
 import { searchMusicPlatforms } from "../music/search.ts";
 
 export default declareCommand({
@@ -49,11 +51,16 @@ export default declareCommand({
     const songName = resolved?.title;
     const artistName = resolved?.artist;
 
-    const components = [
-      new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-        new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(link).setLabel(songLinkLabel(link)),
-      ),
-    ];
+    const components = [] as ActionRowBuilder<MessageActionRowComponentBuilder>[];
+    if (songName) {
+      const row = new ActionRowBuilder<MessageActionRowComponentBuilder>();
+      row.addComponents(MusicLinkButton(link));
+      for (const provider of userSearchableProviders) {
+        if (provider !== linkProvider(link))
+          row.addComponents(MusicSearchButton(`${artistName} ${songName}`, provider, false));
+      }
+      components.push(row);
+    }
 
     switch (responseType) {
       case "emoji": {

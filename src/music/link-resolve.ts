@@ -12,7 +12,7 @@ export type ResolvedTrack = {
 const resolvedTrackCache = {} as Record<string, ResolvedTrack>;
 const resolvedTrackCacheTTL = 60 * 60 * 1000;
 
-type Providers =
+export type Providers =
   | "spotify"
   | "youtubeMusic"
   | "youtube"
@@ -20,6 +20,24 @@ type Providers =
   | "tidal"
   | "deezer"
   | "soundcloud";
+export const userSearchableProviders = ["spotify", "youtubeMusic", "appleMusic"] as const;
+export type UserSearchableProviders = (typeof userSearchableProviders)[number];
+
+export const providerEmojis: Record<Providers, string> = {
+  spotify: "<:spotify:1555921157163716638>",
+  youtube: "<:youtube:1555921163086077953>",
+  youtubeMusic: "<:youtubemusic:1555921166517145630>",
+  appleMusic: "<:applemusic:1555921146250272879>",
+  tidal: "<:tidal:1555921160129085511>",
+  deezer: "<:deezer:1555921149970620466>",
+  soundcloud: "<:soundcloud:1555921152701112410>",
+};
+
+export const providerSearchEmojis: Record<UserSearchableProviders, string> = {
+  spotify: "<:spotifysearch:1555921154366242886>",
+  youtubeMusic: "<:youtubemusicsearch:1555921164340166738>",
+  appleMusic: "<:applemusicsearch:1555921143695802438>",
+};
 
 export function linkProvider(link: string): Providers | null {
   try {

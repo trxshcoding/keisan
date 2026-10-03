@@ -1,8 +1,6 @@
 import {
   ActionRowBuilder,
   ApplicationIntegrationType,
-  ButtonBuilder,
-  ButtonStyle,
   ChatInputCommandInteraction,
   InteractionContextType,
   type MessageActionRowComponentBuilder,
@@ -17,13 +15,13 @@ import { createResizedEmoji } from "../utils/discord.ts";
 import { escapeMarkdown, tryCatch } from "../utils/general.ts";
 import { declareCommand } from "../command.ts";
 import { http, httpJson } from "../lib/http.ts";
-import { trackContainer } from "../music/components.ts";
+import { MusicLinkButton, MusicSearchButton, trackContainer } from "../music/components.ts";
 import { generateNowplayingImage } from "../music/image.ts";
 import {
   linkProvider,
   removeQueryParams,
   resolveTrackFromLink,
-  songLinkLabel,
+  userSearchableProviders,
 } from "../music/link-resolve.ts";
 import { mbApi, type HistoryItem } from "../music/schemas.ts";
 import { searchMusicPlatforms } from "../music/search.ts";
@@ -305,6 +303,8 @@ export default declareCommand({
     }
     const nowPlaying = nowPlayingRes.item;
     let { link, albumArt } = nowPlaying;
+    if (link && (linkProvider(link) === "youtube" || linkProvider(link) === "youtubeMusic"))
+      link = removeQueryParams(link, ["v"]);
     let highQualityCoverLink: string | undefined = albumArt || undefined;
     let lowQualityCoverLink: string | undefined = undefined;
 
@@ -343,16 +343,21 @@ export default declareCommand({
 ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}`;
 
         const components = [] as ActionRowBuilder<MessageActionRowComponentBuilder>[];
-        if (link)
-          components.push(
-            new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-              new ButtonBuilder()
-                .setStyle(ButtonStyle.Link)
-                .setURL(removeQueryParams(link, ["v"]))
-                .setLabel(songLinkLabel(link)),
-            ),
-          );
-        else content += "\n-# couldn't find a streaming link";
+        if (link) {
+          const row = new ActionRowBuilder<MessageActionRowComponentBuilder>();
+          row.addComponents(MusicLinkButton(link));
+          for (const provider of userSearchableProviders) {
+            if (provider !== linkProvider(link))
+              row.addComponents(
+                MusicSearchButton(
+                  `${nowPlaying.artistName} ${nowPlaying.songName}`,
+                  provider,
+                  false,
+                ),
+              );
+          }
+          components.push(row);
+        } else content += "\n-# couldn't find a streaming link";
 
         await interaction.followUp({
           content,
@@ -382,15 +387,21 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
           highQualityCoverLink || lowQualityCoverLink,
         );
         const components = [] as ActionRowBuilder<MessageActionRowComponentBuilder>[];
-        if (link)
-          components.push(
-            new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-              new ButtonBuilder()
-                .setStyle(ButtonStyle.Link)
-                .setURL(removeQueryParams(link, ["v"]))
-                .setLabel(songLinkLabel(link)),
-            ),
-          );
+        if (link) {
+          const row = new ActionRowBuilder<MessageActionRowComponentBuilder>();
+          row.addComponents(MusicLinkButton(link));
+          for (const provider of userSearchableProviders) {
+            if (provider !== linkProvider(link))
+              row.addComponents(
+                MusicSearchButton(
+                  `${nowPlaying.artistName} ${nowPlaying.songName}`,
+                  provider,
+                  false,
+                ),
+              );
+          }
+          components.push(row);
+        }
 
         await interaction.followUp({
           files: [new AttachmentBuilder(image).setName("nowplaying.png")],
