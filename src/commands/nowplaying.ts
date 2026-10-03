@@ -36,7 +36,7 @@ type MusicBrainzInfo = {
 };
 
 const lastfmScrapeCache = {} as Record<string, { spotify?: string; youtube?: string }>;
-const lastfmScrapeCacheTTL = 60 * 60 * 1000;
+const lastfmScrapeCacheTTL = 24 * 60 * 60 * 1000;
 const mbCache = {} as Record<string, { data: MusicBrainzInfo | null }>;
 const mbCacheTTL = 60 * 60 * 1000;
 
@@ -98,9 +98,40 @@ async function getNowPlayingListenbrainz(
   }
 }
 
+const lastfmCookies = new Set<string>();
+
+function scrapeLastFMFetch(url: string, extraCookies: string[] = []) {
+  const headers: Record<string, string> = {
+    "User-Agent":
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    Referer: "https://www.last.fm/",
+    Accept:
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Accept-Language": "en-US,en;q=0.9",
+    Cookie: ["lfmjs=0", ...lastfmCookies, ...extraCookies].join(";"),
+  };
+
+  return fetch(url, { headers }).then((response) => {
+    for (const cookie of response.headers.getSetCookie())
+      lastfmCookies.add(cookie.split(";")[0].trim());
+    return response;
+  });
+}
+
 async function scrapeLastFM(url: string) {
   try {
-    const content = await (await fetch(url)).text();
+    let content = await (await scrapeLastFMFetch(url)).text();
+    if (content.includes("<title>Client Challenge</title>")) {
+      // let cookie = "testcookie=1"
+      // const challengeScriptPath = content.match(/loadScript\(['"](.+?)['"]\)/)
+      // if (challengeScriptPath?.[1]) {
+      //   const challenge = await (await scrapeLastFMFetch(`https://last.fm${challengeScriptPath[1]}`)).text()
+      //   const challengeCookie = challenge.match(/document\.cookie\s?=\s?["'](.+?=.+?);/)
+      //   if (challengeCookie?.[1]) cookie = challengeCookie[1]
+      // }
+      content = await (await scrapeLastFMFetch(url, ["testcookie=1"])).text();
+    }
     const spotify = content
       .match(/play-this-track-playlink--spotify(?:.{0,500})href="(.+?)"/s)?.[1]
       ?.replace(/&amp;/g, "&");
