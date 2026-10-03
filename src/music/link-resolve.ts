@@ -24,19 +24,19 @@ export const userSearchableProviders = ["spotify", "youtubeMusic", "appleMusic"]
 export type UserSearchableProviders = (typeof userSearchableProviders)[number];
 
 export const providerEmojis: Record<Providers, string> = {
-  spotify: "<:spotify:1555921157163716638>",
-  youtube: "<:youtube:1555921163086077953>",
-  youtubeMusic: "<:youtubemusic:1555921166517145630>",
-  appleMusic: "<:applemusic:1555921146250272879>",
-  tidal: "<:tidal:1555921160129085511>",
-  deezer: "<:deezer:1555921149970620466>",
-  soundcloud: "<:soundcloud:1555921152701112410>",
+  spotify: "<:spotify:1556008102296293457>",
+  youtube: "<:youtube:1556008088747375828>",
+  youtubeMusic: "<:youtubemusic:1556008077302702150>",
+  appleMusic: "<:applemusic:1556008120982175834>",
+  tidal: "<:tidal:1556008089587810445>",
+  deezer: "<:deezer:1556008113658789960>",
+  soundcloud: "<:soundcloud:1556008107816259584>",
 };
 
 export const providerSearchEmojis: Record<UserSearchableProviders, string> = {
-  spotify: "<:spotifysearch:1555921154366242886>",
-  youtubeMusic: "<:youtubemusicsearch:1555921164340166738>",
-  appleMusic: "<:applemusicsearch:1555921143695802438>",
+  spotify: "<:spotifysearch:1556008095275032749>",
+  youtubeMusic: "<:youtubemusicsearch:1556008053965328416>",
+  appleMusic: "<:applemusicsearch:1556008115634315314>",
 };
 
 export function linkProvider(link: string): Providers | null {
