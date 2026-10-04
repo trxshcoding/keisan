@@ -25,7 +25,7 @@ export type UserSearchableProviders = (typeof userSearchableProviders)[number];
 
 export const providerEmojis: Record<Providers, string> = {
   spotify: "<:spotify:1556008102296293457>",
-  youtube: "<:youtube:1556008088747375828>",
+  youtube: "<:youtube:1556008087473758208>",
   youtubeMusic: "<:youtubemusic:1556008077302702150>",
   appleMusic: "<:applemusic:1556008120982175834>",
   tidal: "<:tidal:1556008089587810445>",

@@ -51,13 +51,16 @@ export async function searchMusicPlatforms(
   const cached = searchPlatformCache.get(cacheKey);
   if (cached && Date.now() - cached.at < searchPlatformCacheTtl) return cached.data;
 
-  const deezerParams = artist
-    ? {
-        q: `artist:"${artist}" track:"${title}"`,
-      }
-    : {
-        q: title,
-      };
+  // deezer broke their search and passing an artist: filter always returns 0 results
+  // check back if they fixed it occasionally
+  // const deezerParams = artist
+  //   ? {
+  //       q: `artist:"${artist}" track:"${title}"`,
+  //     }
+  //   : {
+  //       q: title,
+  //     };
+  const deezerParams = { q: `${artist || ""} ${title}`.trim() };
   const deezerInfo = deezerResponseShape.safeParse(
     await httpJson(`https://api.deezer.com/search?${new URLSearchParams(deezerParams).toString()}`),
   ).data?.data;
