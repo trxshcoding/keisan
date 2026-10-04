@@ -365,6 +365,18 @@ export default declareCommand({
 
     const coverLink = highQualityCoverLink || lowQualityCoverLink;
 
+    const smallComponents = [] as ActionRowBuilder<MessageActionRowComponentBuilder>[];
+    const row = new ActionRowBuilder<MessageActionRowComponentBuilder>();
+    if (link) row.addComponents(MusicLinkButton(link));
+
+    for (const provider of userSearchableProviders) {
+      if (!link || provider !== linkProvider(link))
+        row.addComponents(
+          MusicSearchButton(`${nowPlaying.artistName} ${nowPlaying.songName}`, provider, false),
+        );
+    }
+    smallComponents.push(row);
+
     switch (responseType) {
       case "emoji": {
         let emoji: ApplicationEmoji | null = null;
@@ -372,27 +384,11 @@ export default declareCommand({
         let content = `### ${escapeMarkdown(nowPlaying.songName)} ${emoji?.toString() || ""}
 -# by ${escapeMarkdown(nowPlaying.artistName)}\
 ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}`;
-
-        const components = [] as ActionRowBuilder<MessageActionRowComponentBuilder>[];
-        if (link) {
-          const row = new ActionRowBuilder<MessageActionRowComponentBuilder>();
-          row.addComponents(MusicLinkButton(link));
-          for (const provider of userSearchableProviders) {
-            if (provider !== linkProvider(link))
-              row.addComponents(
-                MusicSearchButton(
-                  `${nowPlaying.artistName} ${nowPlaying.songName}`,
-                  provider,
-                  false,
-                ),
-              );
-          }
-          components.push(row);
-        } else content += "\n-# couldn't find a streaming link";
+        if (!link) content += "\n-# couldn't find a streaming link";
 
         await interaction.followUp({
           content,
-          components,
+          components: smallComponents,
         });
         if (emoji) void emoji.delete();
         return;
@@ -417,26 +413,10 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
           nowPlaying,
           highQualityCoverLink || lowQualityCoverLink,
         );
-        const components = [] as ActionRowBuilder<MessageActionRowComponentBuilder>[];
-        if (link) {
-          const row = new ActionRowBuilder<MessageActionRowComponentBuilder>();
-          row.addComponents(MusicLinkButton(link));
-          for (const provider of userSearchableProviders) {
-            if (provider !== linkProvider(link))
-              row.addComponents(
-                MusicSearchButton(
-                  `${nowPlaying.artistName} ${nowPlaying.songName}`,
-                  provider,
-                  false,
-                ),
-              );
-          }
-          components.push(row);
-        }
 
         await interaction.followUp({
           files: [new AttachmentBuilder(image).setName("nowplaying.png")],
-          components,
+          components: smallComponents,
         });
         return;
       }
