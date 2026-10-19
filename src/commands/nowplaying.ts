@@ -163,7 +163,7 @@ async function getNowPlaying(
       release_name: albumName,
       additional_info: additionalInfo,
     } = res.data.listens[0].track_metadata;
-    let albumArt: string | undefined = undefined;
+    let coverUrl: string | undefined = undefined;
 
     if (additionalInfo.release_mbid) {
       const musicBrainzInfo = await getMBInfo(additionalInfo.release_mbid, songName);
@@ -174,7 +174,7 @@ async function getNowPlaying(
           musicBrainzInfo.albumname.replace(/ - (?:Single|EP)$/, "") !== musicBrainzInfo.songname
         )
           albumName = musicBrainzInfo.albumname;
-        if (musicBrainzInfo.albumartlink) albumArt = musicBrainzInfo.albumartlink;
+        if (musicBrainzInfo.albumartlink) coverUrl = musicBrainzInfo.albumartlink;
       }
     }
 
@@ -184,7 +184,8 @@ async function getNowPlaying(
         songName,
         artistName,
         albumName,
-        albumArt,
+        coverUrl,
+        coverIsHighQuality: !!coverUrl,
         link: additionalInfo.origin_url,
         mbid: additionalInfo.release_mbid,
       },
@@ -215,7 +216,8 @@ async function getNowPlaying(
         songName: track.name,
         artistName: track.artist["#text"],
         albumName: track.album["#text"],
-        albumArt: coverArt && coverArtRes.ok ? coverArt : undefined,
+        coverUrl: coverArt && coverArtRes.ok ? coverArt : undefined,
+        coverIsHighQuality: false,
         link: spotify ?? youtube,
       };
 
@@ -339,11 +341,15 @@ export default declareCommand({
       }
     }
     const nowPlaying = nowPlayingRes.item;
-    let { link, albumArt } = nowPlaying;
+    let { link, coverUrl } = nowPlaying;
     if (link && (linkProvider(link) === "youtube" || linkProvider(link) === "youtubeMusic"))
       link = removeQueryParams(link, ["v"]);
-    let highQualityCoverLink: string | undefined = albumArt || undefined;
-    let lowQualityCoverLink: string | undefined = undefined;
+    let highQualityCoverLink: string | undefined = nowPlaying.coverIsHighQuality
+      ? coverUrl
+      : undefined;
+    let lowQualityCoverLink: string | undefined = nowPlaying.coverIsHighQuality
+      ? undefined
+      : coverUrl;
 
     if (nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "") === nowPlaying.songName)
       nowPlaying.albumName = "";

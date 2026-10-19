@@ -10,7 +10,8 @@ export type HistoryItem = {
   songName: string;
   artistName: string;
   albumName?: string;
-  albumArt?: string;
+  coverUrl?: string;
+  coverIsHighQuality?: boolean;
   link?: string;
   mbid?: string;
 };
