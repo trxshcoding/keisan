@@ -150,6 +150,7 @@ async function scrapeLastFM(url: string) {
 async function getNowPlaying(
   username: string,
   lastFMApiKey?: string,
+  lFMScrape?: boolean,
 ): Promise<{ status: "ok"; item: HistoryItem } | { status: "error"; err: Status }> {
   if (!lastFMApiKey) {
     const res = await getNowPlayingListenbrainz(username);
@@ -199,7 +200,11 @@ async function getNowPlaying(
       if (coverArt && coverArt.includes("2a96cbd8b46e442fc41c2b86b821562f")) coverArt = undefined;
 
       const page = lastfmScrapeCache[track.url];
-      const scrapePromise = page ? Promise.resolve(page) : scrapeLastFM(track.url);
+      const scrapePromise = lFMScrape
+        ? page
+          ? Promise.resolve(page)
+          : scrapeLastFM(track.url)
+        : Promise.resolve({ youtube: undefined, spotify: undefined });
 
       const [{ spotify, youtube }, coverArtRes] = await Promise.all([
         scrapePromise,
@@ -315,6 +320,7 @@ export default declareCommand({
     const nowPlayingRes = await getNowPlaying(
       musicUser.username,
       musicUser.useLastFM ? config.lastFMApiKey : undefined,
+      config.nowplayingScrapeLastFM,
     );
     if (nowPlayingRes.status === "error") {
       switch (nowPlayingRes.err) {
@@ -424,6 +430,7 @@ ${nowPlaying.albumName ? ` - from ${escapeMarkdown(nowPlaying.albumName)}` : ""}
   },
   dependsOn: z.object({
     lastFMApiKey: z.string(),
+    nowplayingScrapeLastFM: z.coerce.boolean().default(true),
   }),
   slashCommand,
   aliases: ["np", "nowplaying"],

@@ -24,20 +24,6 @@ export const NO_EXTRA_CONFIG = z.object({});
 const configT = z.object({
   token: z.string(),
   owner: z.string(),
-  commandDefaults: z.object({
-    nowplaying: z.object({
-      lobotomized: z.coerce.boolean().default(true),
-      useSonglink: z.coerce.boolean().default(true),
-      useItunes: z.coerce.boolean().default(false),
-      useLastFM: z.coerce.boolean().default(false),
-    }),
-    pat: z.object({
-      speed: z.coerce.number().default(0),
-    }),
-    lastlistened: z.object({
-      historyAmount: z.coerce.number().default(3),
-    }),
-  }),
   disabledCommands: z.array(z.string()).default([]),
 });
 type RawConfig = z.infer<typeof configT>;
