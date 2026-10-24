@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { httpJson } from "../lib/http.ts";
+import { albumNameForDisplay } from "./album.ts";
 
 const itunesResponseShape = z.object({
   results: z.array(
@@ -73,10 +74,10 @@ export async function searchMusicPlatforms(
       deezerInfo.find((res) => res.title.toLowerCase() === title.toLowerCase()) ||
       deezerInfo[0];
 
-    const cleanedAlbum = track.album.title.replace(/ - (?:Single|EP)$/, "");
+    const albumName = albumNameForDisplay(track.album.title);
     result = {
       link: track.link,
-      albumName: cleanedAlbum !== title ? cleanedAlbum : "",
+      albumName,
       artworkUrl: track.album.cover_xl || track.album.cover_big,
       artworkIsLowQuality: false,
     };
@@ -93,10 +94,10 @@ export async function searchMusicPlatforms(
         iTunesInfo.find((res) => res.trackName.toLowerCase() === title.toLowerCase()) ||
         iTunesInfo[0];
 
-      const cleanedAlbum = track.collectionName.replace(/ - (?:Single|EP)$/, "");
+      const albumName = albumNameForDisplay(track.collectionName);
       result = {
         link: track.trackViewUrl,
-        albumName: cleanedAlbum !== title ? cleanedAlbum : "",
+        albumName,
         artworkUrl: track.artworkUrl100?.replace(/100x100bb\.jpg$/, "1200x1200bb.jpg"),
         artworkIsLowQuality: false,
       };

@@ -16,6 +16,7 @@ import type Stream from "stream";
 import { wrapText } from "../utils/canvas.ts";
 import { http, httpJson, httpText } from "../lib/http.ts";
 import { resolveMusicUser } from "../music/user.ts";
+import { albumNameForDisplay } from "../music/album.ts";
 
 async function urlToDataURI(url: string) {
   const response = await http.native(url);
@@ -103,7 +104,7 @@ async function assembleLastFmGrid(
   const usefulinfo = res.topalbums.album
     .map((a: any) => ({
       artist: a.artist.name,
-      name: a.name,
+      name: albumNameForDisplay(a.name),
       image: a.image.at(-1)!["#text"],
     }))
     .filter((a: any) => a.image)

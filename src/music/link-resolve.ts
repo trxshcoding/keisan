@@ -2,7 +2,7 @@ import { tryCatch } from "../utils/general.ts";
 import { http, httpJson } from "../lib/http.ts";
 
 export type ResolvedTrack = {
-  title?: string;
+  title: string;
   artist?: string;
   album?: string;
   coverUrl?: string;
@@ -133,7 +133,7 @@ async function resolveYouTube(link: string): Promise<ResolvedTrack | null> {
   );
   return {
     title: oembed?.title,
-    artist: oembed?.author_name,
+    artist: oembed?.author_name?.replace(/ - Topic$/, ""),
     coverUrl: maxresExists
       ? `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`
       : oembed?.thumbnail_url,

@@ -15,6 +15,7 @@ import {
 import { z } from "zod";
 import { escapeMarkdown } from "../utils/general.ts";
 import { httpJson } from "../lib/http.ts";
+import { albumNameForComparison, albumNameForDisplay } from "../music/album.ts";
 import { trackContainer } from "../music/components.ts";
 import { resolveTrackFromLink } from "../music/link-resolve.ts";
 import { searchMusicPlatforms } from "../music/search.ts";
@@ -36,12 +37,19 @@ async function getHistory(
     );
     if (!res?.payload) return;
     else {
-      return res.payload.listens.map((l: any) => ({
-        songName: l.track_metadata.track_name,
-        artistName: l.track_metadata.artist_name,
-        albumName: l.track_metadata.release_name,
-        link: l.track_metadata.additional_info?.origin_url,
-      }));
+      return res.payload.listens.map((l: any) => {
+        const songName = l.track_metadata.track_name;
+        const albumName = l.track_metadata.release_name;
+        return {
+          songName,
+          artistName: l.track_metadata.artist_name,
+          albumName:
+            albumName && albumNameForComparison(albumName) !== albumNameForComparison(songName)
+              ? albumNameForDisplay(albumName)
+              : undefined,
+          link: l.track_metadata.additional_info?.origin_url,
+        };
+      });
     }
   } else {
     const res = await httpJson<any>(
@@ -53,11 +61,17 @@ async function getHistory(
       if (!tracks) return;
       return tracks
         .filter((t: any) => !t["@attr"]?.nowplaying)
-        .map((t: any) => ({
-          songName: t.name,
-          artistName: t.artist["#text"],
-          albumName: t.album["#text"],
-        }));
+        .map((t: any) => {
+          const albumName = t.album["#text"];
+          return {
+            songName: t.name,
+            artistName: t.artist["#text"],
+            albumName:
+              albumName && albumNameForComparison(albumName) !== albumNameForComparison(t.name)
+                ? albumNameForDisplay(albumName)
+                : undefined,
+          };
+        });
     }
   }
 }

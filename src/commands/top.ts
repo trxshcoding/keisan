@@ -15,6 +15,7 @@ import { httpJson } from "../lib/http.ts";
 import { clamp } from "../utils/general.ts";
 import { z } from "zod";
 import { resolveMusicUser } from "../music/user.ts";
+import { albumNameForDisplay } from "../music/album.ts";
 
 type FailureStatus = "USERNOTFOUND" | "UNKNOWNERROR";
 interface TopMusicTrack {
@@ -138,7 +139,7 @@ const topMusicListenbrainz = {
       status: "OK",
       data: albums.map((r) => ({
         artistName: r.artist_name,
-        albumName: r.name,
+        albumName: albumNameForDisplay(r.name),
         playCount: r.listen_count,
       })),
     };
@@ -211,7 +212,7 @@ const topMusicLastFM = {
     return {
       status: "OK",
       data: (response.topalbums.album as any[]).map((t) => ({
-        albumName: t.name,
+        albumName: albumNameForDisplay(t.name),
         artistName: t.artist.name,
         playCount: t.playcount,
       })),

@@ -20,6 +20,7 @@ import {
   userSearchableProviders,
 } from "../music/link-resolve.ts";
 import { searchMusicPlatforms } from "../music/search.ts";
+import { albumNameForComparison, albumNameForDisplay } from "../music/album.ts";
 
 export default declareCommand({
   async run(interaction: ChatInputCommandInteraction, _config) {
@@ -29,8 +30,7 @@ export default declareCommand({
       | "emoji"
       | "normal"
       | "imagegen";
-    let link = "",
-      albumName = "";
+    let link = "";
 
     if (search.match(/^https?:\/\//)) {
       link = search;
@@ -38,7 +38,6 @@ export default declareCommand({
       const searchResult = await searchMusicPlatforms(search);
       if (searchResult) {
         link = searchResult.link;
-        albumName = searchResult.albumName;
       }
     }
 
@@ -46,10 +45,19 @@ export default declareCommand({
       await interaction.followUp("couldn't find that");
       return;
     }
-
     const resolved = await resolveTrackFromLink(link);
+    if (!resolved) {
+      await interaction.followUp("couldn't find that");
+      return;
+    }
+
     const songName = resolved?.title;
     const artistName = resolved?.artist;
+    const albumName =
+      resolved.album &&
+      albumNameForComparison(resolved.album) !== albumNameForComparison(resolved.title)
+        ? albumNameForDisplay(resolved.album)
+        : "";
 
     const components = [] as ActionRowBuilder<MessageActionRowComponentBuilder>[];
     if (songName) {

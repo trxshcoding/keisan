@@ -15,6 +15,7 @@ import { createResizedEmoji } from "../utils/discord.ts";
 import { escapeMarkdown, tryCatch } from "../utils/general.ts";
 import { declareCommand } from "../command.ts";
 import { http, httpJson } from "../lib/http.ts";
+import { albumNameForComparison, albumNameForDisplay } from "../music/album.ts";
 import { MusicLinkButton, MusicSearchButton, trackContainer } from "../music/components.ts";
 import { generateNowplayingImage } from "../music/image.ts";
 import {
@@ -169,11 +170,7 @@ async function getNowPlaying(
       const musicBrainzInfo = await getMBInfo(additionalInfo.release_mbid, songName);
       if (musicBrainzInfo) {
         songName = musicBrainzInfo.songname;
-        if (
-          musicBrainzInfo.albumname &&
-          musicBrainzInfo.albumname.replace(/ - (?:Single|EP)$/, "") !== musicBrainzInfo.songname
-        )
-          albumName = musicBrainzInfo.albumname;
+        if (musicBrainzInfo.albumname) albumName = albumNameForDisplay(musicBrainzInfo.albumname);
         if (musicBrainzInfo.albumartlink) coverUrl = musicBrainzInfo.albumartlink;
       }
     }
@@ -351,9 +348,6 @@ export default declareCommand({
       ? undefined
       : coverUrl;
 
-    if (nowPlaying.albumName?.replace(/ - (?:Single|EP)$/, "") === nowPlaying.songName)
-      nowPlaying.albumName = "";
-
     if (link && !(musicUser.useLastFM && linkProvider(link) === "youtube")) {
       const resolved = await resolveTrackFromLink(link);
       if (resolved) {
@@ -374,6 +368,13 @@ export default declareCommand({
         else highQualityCoverLink = searchResult.artworkUrl;
       }
     }
+
+    if (
+      !nowPlaying.albumName ||
+      albumNameForComparison(nowPlaying.albumName) === albumNameForComparison(nowPlaying.songName)
+    )
+      nowPlaying.albumName = "";
+    else nowPlaying.albumName = albumNameForDisplay(nowPlaying.albumName);
 
     const coverLink = highQualityCoverLink || lowQualityCoverLink;
 
